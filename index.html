@@ -301,7 +301,8 @@
     .tabs{margin-bottom:7px}
     .tab{height:25px;font-size:12px}
     .field{height:34px;font-size:16px}           /* 16px 未満だと iOS が入力時に拡大する */
-    .search .field{padding:0 12px 0 32px}
+    .search .field{padding:0 62px 0 32px}
+    .search .go{position:absolute;right:4px;height:28px;align-items:center;justify-content:center;line-height:1;padding:0 11px;border:0;border-radius:7px;background:var(--root);color:#04211d;font:600 12.5px Inter,"Noto Sans JP",sans-serif;cursor:pointer}
     .search kbd{display:none}
     .pin .field{height:32px;font-size:16px}
     .path-actions{margin-top:6px}
@@ -361,8 +362,9 @@
   <div id="pane-search">
     <form class="search" id="searchForm" autocomplete="off">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input class="field" id="q" list="suggest" placeholder="単語・語源・意味で検索（例: inspect, 見る）" spellcheck="false">
+      <input class="field" id="q" list="suggest" placeholder="単語・語源・意味で検索（例: inspect, 見る）" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="search">
       <kbd>/</kbd>
+      <button class="go m-only" id="goBtn" type="button" title="検索" aria-label="検索">検索</button>
     </form>
     <div class="hint" id="hint">カテゴリ → 祖語 → 単語 の順にクリックで辿れます</div>
   </div>
@@ -370,8 +372,8 @@
   <div id="pane-path" hidden>
     <form id="pathForm" autocomplete="off">
       <div class="path-grid">
-        <div class="pin from"><input class="field" id="pFrom" list="suggest" placeholder="出発（例: respect）" spellcheck="false"></div>
-        <div class="pin to"><input class="field" id="pTo" list="suggest" placeholder="到着（例: structure）" spellcheck="false"></div>
+        <div class="pin from"><input class="field" id="pFrom" list="suggest" placeholder="出発（例: respect）" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="next"></div>
+        <div class="pin to"><input class="field" id="pTo" list="suggest" placeholder="到着（例: structure）" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="go"></div>
         <button class="swap" id="swapBtn" type="button" title="出発と到着を入れ替え">⇅</button>
       </div>
       <div class="path-actions">
@@ -1735,6 +1737,22 @@ form.addEventListener("submit", e => {
   q.blur();
 });
 q.addEventListener("input", () => { form.classList.remove("miss"); if (hint.classList.contains("err")) setHint(DEFAULT_HINT); });
+// スマホ・タブレット（指で操作する端末）向けの補助。PC の操作は変えない
+const TOUCH = matchMedia("(pointer: coarse)").matches;
+const submitSearch = () => (form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event("submit", { cancelable: true })));
+document.getElementById("goBtn").addEventListener("click", submitSearch);   // スマホだけ表示する「検索」ボタン（type=button にして PC の Enter 送信の挙動を変えない）
+if (TOUCH) {
+  // 日本語キーボードなどで変換中に Enter（確定）を押した場合も、確定後にそのまま検索する
+  let pending = false;
+  q.addEventListener("keydown", e => { if (e.key === "Enter" || e.keyCode === 229 && e.code === "Enter") pending = e.isComposing || e.keyCode === 229; });
+  q.addEventListener("compositionend", () => { if (pending) { pending = false; setTimeout(submitSearch, 0); } });
+  // 候補一覧（datalist）から選んだら、そのまま検索する
+  q.addEventListener("input", e => {
+    if (e.inputType && e.inputType !== "insertReplacementText") return;
+    const v = q.value.trim();
+    if (v && [...document.getElementById("suggest").options].some(o => o.value === v)) setTimeout(submitSearch, 0);
+  });
+}
 
 function switchTab(name) {
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));

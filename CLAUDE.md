@@ -60,6 +60,7 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
 | `python3 tools/pwall.py` | 全単語の分解を JS 側で計算（Python 側との不一致確認用） |
 | `python3 tools/test_fav.py` | 登録機能・登録一覧・道探索（接辞も経由）のテスト |
 | `python3 tools/test_lbl.py` | ノード名の表示切り替えと登録ノードの強調のテスト |
+| `python3 tools/test_mobile.py` | スマホ幅（390×844・360×640）と PC 幅のスクリーンショット（`tools/mob_*.png`） |
 
 画面の見た目を変えたときは、テストが保存するスクリーンショット（`tools/*.png`、.gitignore 済み）を目で確認する。
 
@@ -67,6 +68,7 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
 
 - 登録（☆）と各種設定はブラウザの localStorage に保存する（`etymo-favs-v1`、`etymo-via-affix`、`etymo-fav-sort`、`etymo-label`）。キー名を変えると利用者の登録が消えるので変えないこと。
 - 道探索で「接辞も経由」がオフのとき、繋がらなければ `fewestAffixPaths()`（通る接辞が最少の道）に切り替えて、その旨を表示する。
+- スマホ対応はすべて `@media (max-width:720px)` の中と、`fitNodes()`・`showHome()` の幅による分岐で行っている。PC の見た目を変えないこと（変更後は PC 幅のスクリーンショットも比べる）。
 - 登録したノードの表示：単語は本体と文字を黄色（#facc15）にし、祖語・語根・接辞は名前を黄色にして★印を `afterDrawing` で描く。
 
 ## 名称と検索での表示

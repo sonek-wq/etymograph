@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "about": "英語語源ネットワーク辞書（EtymoGraph）のデータ。pie の category は categories の id（祖語の元の意味で分類。Buck 1949 の意味分野と Longman Lexicon の大分類を参照）。pie / parts の status は verified（照合済み）・review（要確認）・unverified（未照合）。src は照合に使った出典。",
+  "about": "英語語源ネットワーク辞書 EtymoGraph のデータ。pie の category は categories の id（祖語の元の意味で分類。Buck 1949 の意味分野と Longman Lexicon の大分類を参照）。pie / parts の status は verified（照合済み）・review（要確認）・unverified（未照合）。src は照合に使った出典。",
   "sources": {"etymonline": {"title": "Online Etymology Dictionary (Etymonline)", "url": "https://www.etymonline.com/word/{entry}"}, "watkins": {"title": "Calvert Watkins, The American Heritage Dictionary of Indo-European Roots (3rd ed., 2011)", "url": null}},
   "categories": [
     {"id": "nature", "name": "自然・天体", "color": "#60a5fa", "buck": "1 物理的世界", "longman": "A 生物, L 空間と時間"},

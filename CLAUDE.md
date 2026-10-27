@@ -1,6 +1,6 @@
-# EtymoGraph 作業メモ（引き継ぎ用）
+# 英語語源ネットワーク辞書 EtymoGraph 作業メモ（引き継ぎ用）
 
-英語語源ネットワーク辞書（EtymoGraph）のリポジトリ。新しい会話で作業を始めるときは、まずこのファイルと README.md を読むこと。
+英語語源ネットワーク辞書 EtymoGraph のリポジトリ。新しい会話で作業を始めるときは、まずこのファイルと README.md を読むこと。
 README.md は利用者向けの説明とデータ形式の仕様、このファイルは編集する人（Claude を含む）向けの方針と手順。
 
 ## 構成
@@ -68,3 +68,9 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
 - 登録（☆）と各種設定はブラウザの localStorage に保存する（`etymo-favs-v1`、`etymo-via-affix`、`etymo-fav-sort`、`etymo-label`）。キー名を変えると利用者の登録が消えるので変えないこと。
 - 道探索で「接辞も経由」がオフのとき、繋がらなければ `fewestAffixPaths()`（通る接辞が最少の道）に切り替えて、その旨を表示する。
 - 登録したノードの表示：単語は本体と文字を黄色（#facc15）にし、祖語・語根・接辞は名前を黄色にして★印を `afterDrawing` で描く。
+
+## 名称と検索での表示
+
+- 正式な表記は「英語語源ネットワーク辞書 EtymoGraph」（日本語名が先、英字名が後。間は半角スペース）。`<title>`・`og:title`・`og:site_name`・画面の見出し・README で揃える。
+- 公開 URL が決まったら、トップページに WebSite の構造化データ（JSON-LD）を追加する：`name` に正式名、`alternateName` に「EtymoGraph」「英語語源ネットワーク辞書」、`url` にトップページの URL。あわせて `og:url`・`og:image`・`<link rel="canonical">` も入れる。
+- Google の「サイト名」表示はドメイン・サブドメイン単位で、`ユーザー名.github.io/etymograph/` のようなサブディレクトリでは使われない。サイト名まで正式名で出すには独自ドメイン（例：etymograph.jp）が必要。

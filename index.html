@@ -298,8 +298,10 @@
     header.panel > *{flex:1 1 100%;min-width:0}
     .brand{margin:0 2px 7px}
     .brand h1{font-size:13.5px}
-    .tabs{margin-bottom:7px}
-    .tab{height:25px;font-size:12px}
+    .tabs{display:none}                          /* スマホは検索が基本。道探索は単語のカードの「ここから道探索」から開く */
+    .path-head{width:100%;justify-content:space-between;align-items:center;margin:0 2px 6px;font-size:12.5px;color:var(--route)}
+    .path-head .btn{height:26px;font-size:11.5px}
+    #pathHint.tip{display:block}
     .field{height:34px;font-size:16px}           /* 16px 未満だと iOS が入力時に拡大する */
     .search .field{padding:0 62px 0 32px}
     .search .go{position:absolute;right:4px;height:28px;align-items:center;justify-content:center;line-height:1;padding:0 11px;border:0;border-radius:7px;background:var(--root);color:#04211d;font:600 12.5px Inter,"Noto Sans JP",sans-serif;cursor:pointer}
@@ -314,7 +316,8 @@
     header.panel > .controls.sub{flex:1 1 auto;justify-content:flex-end;padding-left:4px}
     .controls .btn{height:28px;padding:0 8px}
     .controls .btn .lbl{display:none}
-    .seg > span{display:none}
+    #labelSeg > span{display:none}
+    #depthSeg > span{padding:0 6px;font-size:11px}
     .seg button{width:28px}
     .seg.wide button{width:auto;padding:0 9px}
     .seg button:first-of-type{border-left:0}
@@ -334,7 +337,7 @@
     .lg-row{padding:2px 0}
     body.has-info .legend{display:none}
     /* 情報カード：下のシート。上端をタップすると最小化／展開 */
-    .info{left:8px;right:8px;bottom:8px;width:auto;max-height:46vh;padding:6px 14px 12px;transition:opacity .18s,transform .18s,max-height .2s}
+    .info{left:8px;right:8px;bottom:8px;width:auto;max-height:min(30vh,236px);padding:6px 14px 12px;transition:opacity .18s,transform .18s,max-height .2s}
     .info::before{content:"";display:block;width:38px;height:4px;margin:2px auto 8px;border-radius:2px;background:#3a4252}
     .info-head{cursor:pointer}
     body.info-min .info{max-height:104px;overflow:hidden}
@@ -344,7 +347,7 @@
     .footnote{display:none}
   }
   @media (max-width:720px) and (max-height:700px){
-    .info{max-height:38vh}
+    .info{max-height:min(34vh,210px)}
   }
 </style>
 </head>
@@ -370,6 +373,7 @@
   </div>
 
   <div id="pane-path" hidden>
+    <div class="path-head m-only"><b>道探索</b><button class="btn" id="pathClose" type="button" title="検索欄に戻る">検索に戻る</button></div>
     <form id="pathForm" autocomplete="off">
       <div class="path-grid">
         <div class="pin from"><input class="field" id="pFrom" list="suggest" placeholder="出発（例: respect）" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="next"></div>
@@ -861,7 +865,7 @@ function fitNodes(ids, duration = 600, maxScale = 1.3, padX = 0) {
     bottom = (sheet && sheet.offsetHeight ? sheet.offsetHeight + 8 : 0) + 8;
     if (top + bottom > H - 160) bottom = Math.max(16, H - 160 - top);
   }
-  const bw = maxX - minX + (padX || (phone ? 90 : 160)), bh = maxY - minY + (phone ? 70 : 120);
+  const bw = maxX - minX + (padX || (phone ? 90 : 160)), bh = maxY - minY + (phone ? 110 : 120);   // スマホ：祖語の名前（ノードの下）が隠れないよう縦の余白を多めに
   const scale = Math.min((W - left - right) / bw, (H - top - bottom) / bh, maxScale);
   const offsetPx = left + (W - left - right) / 2 - W / 2, offsetPy = top + (H - top - bottom) / 2 - H / 2;
   network.moveTo({ position: { x: (minX + maxX) / 2 - offsetPx / scale, y: (minY + maxY) / 2 - offsetPy / scale }, scale,
@@ -1061,7 +1065,9 @@ function drawRoute() {
   const dist = new Map(ids.map((id, i) => [id, i]));
   const edges = ids.slice(1).map((id, i) => edgeByPair.get(pairKey(ids[i], id)));
   const positions = {};
-  ids.forEach((id, i) => { positions[id] = { x: i * 165, y: (i % 2 ? 1 : -1) * 46 }; });
+  // スマホ（縦長）は上から下へジグザグに並べる（横一列だと縮小されすぎる）
+  const tall = container.clientWidth <= 720;
+  ids.forEach((id, i) => { positions[id] = tall ? { x: (i % 2 ? 1 : -1) * 70, y: i * 86 } : { x: i * 165, y: (i % 2 ? 1 : -1) * 46 }; });
   nodesDS.getIds().forEach(nid => { if (nodesDS.get(nid).fixed) nodesDS.update({ id: nid, fixed: false }); });
   applyGraph(dist, new Map(), edges, { positions, keep: false });
   const a = byId.get(ids[0]), b = byId.get(ids[ids.length - 1]);
@@ -1229,7 +1235,7 @@ const pathHint = document.getElementById("pathHint");
 const PATH_HINT = pathHint.textContent;
 const pathSel = { from: null, to: null };
 
-function setPathHint(text, cls = "") { pathHint.textContent = text; pathHint.className = "hint" + (cls ? " " + cls : ""); }
+function setPathHint(text, cls = "") { pathHint.textContent = text; pathHint.className = "hint" + (cls ? " " + cls : text !== PATH_HINT ? " tip" : ""); }
 function resolveInput(input, which) {
   const v = input.value.trim();
   if (!v) return null;
@@ -1261,7 +1267,7 @@ function setEndpoint(which, id) {
   [pFrom, pTo].forEach(i => i.classList.remove("miss"));
   switchTab("path");
   if (pathSel.from && pathSel.to && pFrom.value && pTo.value) runRoute();
-  else setPathHint(which === "from" ? "到着ノードを指定してください（Shift+クリック可）" : "出発ノードを指定してください");
+  else setPathHint(which === "from" ? (TOUCH ? "到着の語を入力するか、別の語のカードで「ここまでの道」を押してください" : "到着ノードを指定してください（Shift+クリック可）") : (TOUCH ? "出発の語を入力するか、別の語のカードで「ここから道探索」を押してください" : "出発ノードを指定してください"));
 }
 function randomRoute() {
   const words = nodeList.filter(n => n.type === "word");
@@ -1523,7 +1529,14 @@ function learnOrder(mode) { // mode: "root" | "all"
   return res;
 }
 
+// 別のノード・道に切り替わったら、カードを先頭までスクロールし直す（前のカードのスクロール位置が残らないように）
+let lastInfoKey = "";
 function renderInfo() {
+  const key = route ? "route:" + route.all[route.idx].join("|") : current ? current.mode + ":" + (current.id || "") : "";
+  renderInfoBody();
+  if (key !== lastInfoKey) { infoEl.scrollTop = 0; lastInfoKey = key; }
+}
+function renderInfoBody() {
   document.body.classList.toggle("has-info", !!(route || (current && (current.mode === "focus" || current.mode === "cat"))));
   if (route) { renderRouteCard(); return; }
   if (current && current.mode === "cat") { renderCatCard(current.id); return; }
@@ -1759,6 +1772,7 @@ function switchTab(name) {
   document.getElementById("pane-search").hidden = name !== "search";
   document.getElementById("pane-path").hidden = name !== "path";
 }
+document.getElementById("pathClose").addEventListener("click", () => switchTab("search"));
 document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
   switchTab(t.dataset.tab);
   (t.dataset.tab === "path" ? (pFrom.value ? pTo : pFrom) : q).focus();

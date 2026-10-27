@@ -1,0 +1,1922 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EtymoGraph｜英語語源ネットワーク辞書</title>
+<meta name="description" content="英単語を語源パーツ（語根・接辞）と印欧祖語でつないだネットワーク型の語源辞書。単語どうしの意外なつながりを図でたどれます。各項目は Online Etymology Dictionary で照合し、出典リンク付き。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0e14;
+    --panel:rgba(16,20,29,.86);
+    --line:rgba(148,163,184,.14);
+    --line-strong:rgba(148,163,184,.28);
+    --text:#e6e9ef;
+    --muted:#8b93a7;
+    --pie:#f5b14c;
+    --root:#2dd4bf;
+    --affix:#a78bfa;
+    --word:#cbd5e1;
+    --route:#fb7185;
+    --fav:#facc15;
+    --ok:#4ade80;
+    --review:#fbbf24;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:Inter,"Noto Sans JP",system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+  #graph{position:fixed;inset:0;
+    background:
+      radial-gradient(1100px 760px at 72% 18%,rgba(45,212,191,.055),transparent 60%),
+      radial-gradient(900px 700px at 12% 88%,rgba(245,177,76,.045),transparent 60%),
+      var(--bg)}
+  .panel{position:fixed;z-index:5;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  [hidden]{display:none!important}
+  a{color:inherit}
+
+  /* ---------- Header ---------- */
+  header.panel{top:16px;left:16px;width:min(380px,calc(100vw - 32px));padding:14px 14px 12px}
+  .brand{display:flex;align-items:baseline;gap:8px;margin:0 2px 10px}
+  .brand h1{margin:0;font-size:15px;font-weight:600;letter-spacing:.01em}
+  .brand span{font-size:11.5px;color:var(--muted)}
+  .tabs{display:flex;gap:2px;padding:2px;margin-bottom:10px;background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:9px}
+  .tab{flex:1;height:27px;border:0;border-radius:7px;background:transparent;color:var(--muted);font:500 12.5px Inter,"Noto Sans JP",sans-serif;cursor:pointer}
+  .tab:hover{color:var(--text)}
+  .tab.active{background:rgba(255,255,255,.09);color:var(--text)}
+  .tab.active[data-tab="path"]{color:var(--route)}
+
+  .field{width:100%;height:38px;padding:0 12px;border-radius:9px;border:1px solid var(--line-strong);
+    background:rgba(255,255,255,.03);color:var(--text);font:500 14px var(--mono);outline:none;transition:border-color .15s,box-shadow .15s}
+  .field::placeholder{color:#5f677a;font-family:Inter,"Noto Sans JP",sans-serif;font-weight:400}
+  .field:focus{border-color:var(--root);box-shadow:0 0 0 3px rgba(45,212,191,.15)}
+  .search{position:relative;display:flex;align-items:center}
+  .search svg{position:absolute;left:11px;width:15px;height:15px;stroke:var(--muted);pointer-events:none}
+  .search .field{padding:0 44px 0 34px}
+  .search kbd{position:absolute;right:9px;font:500 11px var(--mono);color:var(--muted);border:1px solid var(--line-strong);border-radius:5px;padding:1px 6px}
+  .miss .field,.field.miss{border-color:#f87171;animation:shake .32s}
+  @keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+  .hint{min-height:16px;margin:7px 2px 0;font-size:11.5px;line-height:1.45;color:var(--muted)}
+  .hint.err{color:#fca5a5}
+  .hint.ok{color:#fda4af}
+  .hint.note{color:#fcd34d}
+
+  .path-grid{display:grid;grid-template-columns:1fr 34px;gap:6px}
+  .pin{position:relative}
+  .pin .field{height:35px;padding-left:30px;font-size:13.5px}
+  .pin .field:focus{border-color:var(--route);box-shadow:0 0 0 3px rgba(251,113,133,.15)}
+  .pin::before{content:"";position:absolute;left:12px;top:50%;width:9px;height:9px;border-radius:50%;transform:translateY(-50%);box-sizing:border-box}
+  .pin.from::before{border:2px solid var(--route)}
+  .pin.to::before{background:var(--route)}
+  .path-grid .from{grid-column:1;grid-row:1}
+  .path-grid .to{grid-column:1;grid-row:2}
+  .swap{grid-column:2;grid-row:1/3;border:1px solid var(--line-strong);border-radius:9px;background:transparent;color:var(--muted);cursor:pointer;font-size:15px}
+  .swap:hover{color:var(--text);border-color:var(--muted)}
+  .path-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+
+  .controls{display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:10px;border-top:1px solid var(--line)}
+  .controls .spacer{flex:1}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap}
+  .toggle input{appearance:none;flex:none;width:30px;height:17px;border-radius:999px;background:#273041;position:relative;cursor:pointer;transition:background .15s;margin:0}
+  .toggle input::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#cbd5e1;transition:transform .15s}
+  .toggle input:checked{background:var(--route)}
+  .toggle input:checked::after{transform:translateX(13px);background:#2a0b12}
+  .btns{display:flex;gap:6px;flex:none}
+  .btn{height:28px;padding:0 10px;border-radius:7px;border:1px solid var(--line-strong);background:transparent;color:var(--text);
+    font:500 12px Inter,"Noto Sans JP",sans-serif;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+  .btn:hover:not(:disabled){border-color:var(--muted)}
+  .btn:disabled{opacity:.35;cursor:default}
+  .btn svg{width:13px;height:13px;stroke:currentColor;flex:none}
+  .btn.primary{background:var(--route);border-color:var(--route);color:#2a0b12;font-weight:600}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .seg{display:flex;align-items:center;height:28px;border:1px solid var(--line-strong);border-radius:7px;overflow:hidden}
+  .seg span{padding:0 7px;font-size:11px;color:var(--muted)}
+  .seg button{width:24px;height:100%;border:0;border-left:1px solid var(--line);background:transparent;color:var(--muted);font:600 12px var(--mono);cursor:pointer}
+  .seg button.on{background:rgba(45,212,191,.14);color:var(--root)}
+  .seg button:disabled{opacity:.35;cursor:default}
+  .seg.wide button{width:auto;padding:0 10px;font:600 12px Inter,"Noto Sans JP",sans-serif}
+  .controls.sub{margin-top:6px;padding-top:0;border-top:0}
+  .sw .favsw{font-style:normal;color:var(--fav);font-size:14px;line-height:1;border-radius:0;text-shadow:0 0 8px rgba(250,204,21,.6)}
+  .status{margin:8px 2px 0;font-size:11.5px;color:var(--muted);line-height:1.45}
+  .status b{color:var(--text);font-weight:600;font-family:var(--mono)}
+
+  /* ---------- Legend ---------- */
+  .legend{top:16px;right:16px;padding:12px 14px;width:216px;font-size:12.5px}
+  .legend h2,.info h2{margin:0 0 9px;font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .lg-row{display:flex;align-items:center;gap:10px;padding:4px 0}
+  .lg-row b{font-weight:600}
+  .lg-row small{color:var(--muted);margin-left:auto;font-size:11px}
+  .sw{flex:none;display:grid;place-items:center;width:22px}
+  .sw i{display:block;border-radius:50%}
+  .sw .pie{width:18px;height:18px;background:var(--pie);box-shadow:0 0 12px rgba(245,177,76,.55)}
+  .sw .root{width:13px;height:13px;background:var(--root)}
+  .sw .affix{width:10px;height:10px;background:var(--affix);border-radius:1px;transform:rotate(45deg)}
+  .sw .word{width:9px;height:9px;border:2px solid var(--word);background:#121826}
+  .sw .ln{width:22px;height:0;border-radius:0;border-top:1.5px solid #64748b}
+  .sw .ln.dash{border-top:1.5px dashed var(--pie)}
+  .sw .ln.route{border-top:3px solid var(--route);box-shadow:0 0 8px rgba(251,113,133,.7)}
+  .sw .more{width:auto;border-radius:4px;padding:0 3px;font:600 9px var(--mono);color:var(--muted);border:1px dashed #4b5468}
+  .sw .tick{font-style:normal;font-weight:700;color:var(--ok);border-radius:0}
+  .sw .cat{width:20px;height:13px;border-radius:4px;border:2px solid #60a5fa;background:#141a26}
+  .catchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .catchip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:6px;border:1px solid var(--c);background:transparent;
+    color:var(--text);font:500 11.5px Inter,"Noto Sans JP",sans-serif;cursor:pointer}
+  .catchip:hover{background:rgba(255,255,255,.05)}
+  .catchip::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--c)}
+  /* branch (D) */
+  .sw .br{width:11px;height:11px;border-radius:50%;background:var(--root);box-shadow:0 0 0 2px var(--bg),0 0 0 4.5px var(--b)}
+  .sw .br.dash{box-shadow:none;outline:2px dashed #a8a29e;outline-offset:2px}
+  .brtag{display:inline-flex;align-items:center;justify-content:center;min-width:52px;height:22px;padding:0 7px;border-radius:6px;
+    font:600 10.5px Inter,"Noto Sans JP",sans-serif;color:#0b0e14;background:var(--b);margin-top:2px}
+  .bd{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--b);margin-left:3px}
+  .lg-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+  .lg-head h2{margin:0}
+  .lg-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;margin-top:4px}
+  .lg-toggle input{margin:0;accent-color:var(--root)}
+  /* index panel (C) */
+  .index{top:16px;right:16px;bottom:16px;width:316px;display:flex;flex-direction:column;padding:12px 12px 8px}
+  .ix-head{display:flex;align-items:center;gap:8px;margin:0 2px 10px}
+  .ix-head h2{margin:0;font-size:13px;font-weight:600}
+  .ix-head .x{margin-left:auto}
+  .ix-sw{height:22px;padding:0 8px;border-radius:6px;border:1px solid var(--line-strong);background:transparent;color:var(--muted);font:500 11px Inter,"Noto Sans JP",sans-serif;cursor:pointer}
+  .ix-sw:hover{color:var(--text);border-color:var(--muted)}
+  .ix-head .ix-sw + .x{margin-left:auto}
+  .ix-head h2 + .ix-sw{margin-left:4px}
+  .ix-tabs{display:flex;gap:2px;padding:2px;margin-bottom:8px;background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:9px}
+  .ix-tabs button{flex:1 1 auto;height:26px;padding:0 4px;border:0;border-radius:7px;background:transparent;color:var(--muted);font:500 11.5px Inter,"Noto Sans JP",sans-serif;cursor:pointer;white-space:nowrap}
+  .ix-tabs button.on{background:rgba(255,255,255,.09);color:var(--text)}
+  .ix-filter{height:32px;font-size:13px}
+  .ix-opts{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 6px}
+  .ix-opts button,.fv-sort button{height:24px;padding:0 8px;border-radius:6px;border:1px solid var(--line-strong);background:transparent;color:var(--muted);
+    font:500 11px Inter,"Noto Sans JP",sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+  .ix-opts button.on,.fv-sort button.on{color:var(--text);border-color:var(--muted);background:rgba(255,255,255,.06)}
+  .ix-count{font-size:11px;color:var(--muted);margin:0 2px 6px}
+  .ix-list{flex:1;overflow:auto;margin:0 -4px;padding:0 4px}
+  .ix-group{position:sticky;top:0;z-index:1;margin:8px 0 2px;padding:4px 6px;font-size:11px;font-weight:600;color:var(--c,var(--muted));
+    background:#121722;border-radius:5px;display:flex;align-items:center;gap:6px}
+  .ix-item{display:flex;align-items:center;gap:8px;width:100%;padding:5px 6px;border:0;border-radius:6px;background:transparent;color:var(--text);
+    text-align:left;cursor:pointer;font:500 12.5px var(--mono)}
+  .ix-item:hover{background:rgba(255,255,255,.06)}
+  .ix-item i{font-style:normal;width:7px;height:7px;border-radius:50%;flex:none;background:var(--c)}
+  .ix-item small{font:400 11px Inter,"Noto Sans JP",sans-serif;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ix-item .end{margin-left:auto;display:flex;align-items:center;flex:none}
+  .ix-item .rk{width:26px;flex:none;text-align:right;font:500 10.5px var(--mono);color:var(--muted)}
+  .ix-item .gain{font:500 10.5px var(--mono);color:var(--root);margin-right:8px}
+  .ix-item .pct{font:500 10.5px var(--mono);color:var(--muted);width:42px;text-align:right}
+  .ix-note{font-size:11px;line-height:1.55;color:var(--muted);margin:2px 2px 6px}
+  .ix-note b{color:var(--text);font-weight:600}
+  .via{font-size:10.5px;color:var(--muted);margin-top:2px}
+  .sec-note{display:block;font-weight:400;font-size:10.5px;color:var(--muted);margin-top:1px;text-transform:none;letter-spacing:0}
+  .ix-item .rv{color:var(--review);font-weight:700;font-size:11px;margin-left:4px}
+  .ix-empty{font-size:12px;color:#5f677a;padding:12px 6px}
+  body.index-open .legend,body.fav-open .legend{display:none}
+  .lg-btns{display:flex;gap:6px}
+  .lg-btns .btn{padding:0 8px;gap:4px}
+  #favOpen svg{width:14px;height:14px}
+  #favOpen .n{font:600 10.5px var(--mono);color:var(--fav)}
+  .fav-row{display:flex;align-items:center;gap:2px}
+  .fav-row .ix-item{flex:1;min-width:0}
+  .fav-row .ix-item > span:not(.end){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fav-x{flex:none;display:grid;place-items:center;width:26px;height:26px;border:0;border-radius:6px;background:transparent;color:var(--fav);cursor:pointer}
+  .fav-x:hover{background:rgba(255,255,255,.06)}
+  .fav-x svg{width:14px;height:14px;fill:currentColor}
+  .fv-meta{font:500 10.5px var(--mono);color:var(--muted)}
+  .fv-star{color:var(--fav);font-size:10px;margin-left:4px}
+  .fv-sort{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:8px 0 6px}
+  .fv-sort > span{font-size:11px;color:var(--muted);margin-right:1px}
+  .fv-undo{display:flex;align-items:center;gap:8px;margin:0 2px 6px;padding:5px 8px;border-radius:7px;background:rgba(255,255,255,.05);font-size:11.5px;color:var(--muted)}
+  .fv-undo b{color:var(--text);font-weight:600;font-family:var(--mono)}
+  .fv-undo button{margin-left:auto;height:22px;padding:0 8px;border-radius:6px;border:1px solid var(--line-strong);background:transparent;color:var(--text);font:500 11px Inter,"Noto Sans JP",sans-serif;cursor:pointer}
+  .fv-foot{font-size:10.5px;color:#5f677a;margin:6px 2px 0}
+  .ix-empty b{color:var(--fav)}
+  .lg-sep{height:1px;background:var(--line);margin:7px 0}
+  .lg-cap{font-size:11px;color:var(--muted);margin:0 0 4px}
+  .stats{margin-top:8px;font:500 11px var(--mono);color:var(--muted);line-height:1.6;white-space:pre-line}
+  .warn{margin-top:6px;font-size:11px;color:var(--review);cursor:help}
+  .warn:empty{display:none}
+
+  /* ---------- Info card ---------- */
+  .info{left:16px;bottom:16px;width:min(380px,calc(100vw - 32px));max-height:min(44vh,460px);overflow:auto;padding:14px 16px;
+    opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .18s,transform .18s}
+  .info.show{opacity:1;transform:none;pointer-events:auto}
+  .info-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .badge{font:600 10px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:5px;color:#0b0e14;background:var(--c)}
+  .vbadge{font:600 10.5px Inter,"Noto Sans JP",sans-serif;padding:2px 7px;border-radius:5px;border:1px solid currentColor}
+  .vbadge.verified{color:var(--ok)}
+  .vbadge.review{color:var(--review)}
+  .vbadge.etym{color:var(--c)}
+  .etym-note{margin:8px 0 0;padding:6px 9px;border-left:2px solid var(--c);background:rgba(255,255,255,.03);font-size:11.5px;color:var(--muted);line-height:1.5}
+  .hint .sug{display:inline-block;margin:3px 4px 0 0;padding:1px 7px;border:1px solid var(--line);border-radius:5px;background:transparent;color:var(--text);font:500 11px var(--mono);cursor:pointer}
+  .hint .sug:hover{border-color:#8b93a7}
+  .hint a{color:#93c5fd}
+  .vbadge.unverified{color:#6b7385}
+  .x{margin-left:auto;width:24px;height:24px;border:0;border-radius:6px;background:transparent;color:var(--muted);font-size:16px;cursor:pointer;line-height:1}
+  .x:hover{background:rgba(255,255,255,.06);color:var(--text)}
+  .info-name{font:600 20px var(--mono);letter-spacing:-.01em;word-break:break-word}
+  .info-name .to-arrow{color:var(--route);padding:0 6px;font-weight:500}
+  .speak{display:inline-grid;place-items:center;width:26px;height:26px;margin-left:8px;vertical-align:3px;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--muted);cursor:pointer}
+  .speak:hover,.speak.on{color:var(--text);border-color:#8b93a7}
+  .speak svg{width:14px;height:14px}
+  .fav{display:inline-grid;place-items:center;width:26px;height:26px;margin-left:6px;vertical-align:3px;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--muted);cursor:pointer}
+  .info-name .speak + .fav{margin-left:6px}
+  .fav:hover{color:var(--text);border-color:#8b93a7}
+  .fav svg{width:15px;height:15px}
+  .fav.on{color:var(--fav);border-color:rgba(250,204,21,.45);background:rgba(250,204,21,.08)}
+  .fav.on svg{fill:currentColor}
+  .route-note{font-size:12px;line-height:1.55;color:#fcd34d;margin:-4px 0 12px;padding:7px 10px;border-radius:8px;border:1px solid rgba(250,204,21,.3);background:rgba(250,204,21,.06)}
+  .info-gloss{color:var(--muted);font-size:13px;margin-bottom:12px;line-height:1.5}
+  .info-gloss em{font-style:normal;color:#b3bbcc}
+  .info-ja{font-size:15px;font-weight:600;color:#e6e9ef;margin:2px 0 6px}
+  .decomp{font-size:12.5px;line-height:1.7;color:#b3bbcc;margin-bottom:12px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.035);border:1px solid var(--line)}
+  .decomp b{font:600 12.5px var(--mono);color:var(--c)}
+  .decomp .plus{color:#5f677a;padding:0 4px}
+  .decomp .lit{display:block;margin-top:2px;color:var(--text)}
+  .decomp .lit span{color:var(--muted);font-size:11px;margin-right:6px}
+  .sec{margin-top:12px}
+  .sec:first-of-type{margin-top:0}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;border:1px solid var(--line-strong);
+    background:rgba(255,255,255,.025);color:var(--text);font:500 12.5px/1.45 var(--mono);cursor:pointer;transition:border-color .12s,background .12s}
+  .chip::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c)}
+  .chip:hover{border-color:var(--c);background:rgba(255,255,255,.05)}
+  .chip small{font:400 10.5px Inter,"Noto Sans JP",sans-serif;color:var(--muted)}
+  .chip .ok{color:var(--ok);font-weight:700}
+  .chip .rv{color:var(--review);font-weight:700}
+  .more-txt{font-size:11.5px;color:var(--muted);align-self:center}
+  .route{display:grid;grid-template-columns:auto 14px 1fr;align-items:start;gap:6px 8px;margin-bottom:6px}
+  .route .arrow{color:#4b5468;font-size:12px;padding-top:4px}
+  .chain{display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+  .chain .step{display:flex;align-items:center;gap:8px}
+  .chain .link{margin-left:13px;width:2px;height:10px;background:linear-gradient(var(--route),rgba(251,113,133,.35));border-radius:1px}
+  .chain .chip.end{border-color:var(--route);box-shadow:0 0 0 2px rgba(251,113,133,.15)}
+  .nav{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:var(--muted)}
+  .nav .btn{height:26px;padding:0 9px}
+  .actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .actions .btn{height:27px}
+  .src{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+  .src li{font-size:12px;line-height:1.5;color:#b3bbcc}
+  .src li a{color:var(--root);text-decoration:none;font-family:var(--mono)}
+  .src li a:hover{text-decoration:underline}
+  .src li small{display:block;color:var(--muted);font-size:11px}
+  .lookup{font-size:11.5px;color:var(--muted)}
+  .lookup a{color:var(--muted)}
+  .empty{font-size:12px;color:#5f677a}
+
+  .footnote{position:fixed;right:16px;bottom:14px;z-index:4;font-size:11px;color:#4f5769}
+  .loading{position:fixed;inset:0;z-index:3;display:grid;place-items:center;pointer-events:none;transition:opacity .3s}
+  .loading.done{opacity:0}
+  .loading div{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+  .loading i{display:block;width:160px;height:3px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
+  .loading b{display:block;height:100%;width:0;background:var(--root);transition:width .1s}
+
+  /* data fallback */
+  .datapanel{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:rgba(11,14,20,.85)}
+  .datapanel .box{width:min(520px,100%);padding:22px;background:#121722;border:1px solid var(--line-strong);border-radius:14px}
+  .datapanel h2{margin:0 0 8px;font-size:16px}
+  .datapanel p{margin:0 0 10px;font-size:13px;line-height:1.65;color:#b3bbcc}
+  .datapanel code{font-family:var(--mono);font-size:12px;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:5px;color:var(--text)}
+  .drop{margin-top:14px;padding:22px;border:1.5px dashed var(--line-strong);border-radius:10px;text-align:center;font-size:13px;color:var(--muted);cursor:pointer}
+  .drop.over{border-color:var(--root);color:var(--root)}
+  .datapanel .err{color:#fca5a5;font-size:12px;margin-top:8px}
+
+  @media (max-width:720px){
+    .legend{top:auto;bottom:16px;right:16px;width:auto;padding:10px 12px}
+    .legend .lg-edges,.legend .stats,.legend .warn,.legend h2{display:none}
+    .lg-row{padding:2px 0}
+    body.has-info .legend{display:none}
+    .index{top:auto;left:16px;right:16px;bottom:16px;width:auto;height:62vh;z-index:6}
+    .footnote{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="graph"></div>
+<div class="loading" id="loading"><div><span id="loadMsg">データを読み込み中…</span><i><b id="loadBar"></b></i></div></div>
+
+<header class="panel">
+  <div class="brand" title="英単語 ⇄ 語源パーツ ⇄ 印欧祖語"><h1>EtymoGraph</h1><span>英語語源ネットワーク辞書</span></div>
+  <div class="tabs" role="tablist">
+    <button class="tab active" type="button" data-tab="search" role="tab">検索</button>
+    <button class="tab" type="button" data-tab="path" role="tab">道探索</button>
+  </div>
+
+  <div id="pane-search">
+    <form class="search" id="searchForm" autocomplete="off">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input class="field" id="q" list="suggest" placeholder="単語・語源・意味で検索（例: inspect, 見る）" spellcheck="false">
+      <kbd>/</kbd>
+    </form>
+    <div class="hint" id="hint">カテゴリ → 祖語 → 単語 の順にクリックで辿れます</div>
+  </div>
+
+  <div id="pane-path" hidden>
+    <form id="pathForm" autocomplete="off">
+      <div class="path-grid">
+        <div class="pin from"><input class="field" id="pFrom" list="suggest" placeholder="出発（例: respect）" spellcheck="false"></div>
+        <div class="pin to"><input class="field" id="pTo" list="suggest" placeholder="到着（例: structure）" spellcheck="false"></div>
+        <button class="swap" id="swapBtn" type="button" title="出発と到着を入れ替え">⇅</button>
+      </div>
+      <div class="path-actions">
+        <label class="toggle" title="オフにすると、接頭辞・接尾辞を通らず語根と祖語だけで繋がる道を探します"><input type="checkbox" id="viaAffix" checked>接辞も経由</label>
+        <div class="btns">
+          <button class="btn" id="randomBtn" type="button" title="ランダムな2語で道を探す">おまかせ</button>
+          <button class="btn primary" type="submit">道を探す</button>
+        </div>
+      </div>
+    </form>
+    <div class="hint" id="pathHint">Shift+クリックでも出発→到着を指定できます</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="backBtn" type="button" title="前の表示に戻る" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>戻る</button>
+    <button class="btn" id="homeBtn" type="button" title="カテゴリ一覧（最初の画面）に戻る">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>カテゴリ一覧</button>
+    <div class="seg" id="depthSeg" title="周囲何ホップまで表示するか"><span>深さ</span>
+      <button type="button" data-d="1">1</button><button type="button" data-d="2" class="on">2</button><button type="button" data-d="3">3</button></div>
+  </div>
+  <div class="controls sub">
+    <div class="seg wide" id="labelSeg" title="マップ上のノード名の表示"><span>表示</span>
+      <button type="button" data-l="both" class="on" title="英語と日本語の両方">英+日</button><button type="button" data-l="en" title="英語（綴り）だけ">英</button><button type="button" data-l="ja" title="日本語（意味・和訳）だけ">日</button></div>
+  </div>
+  <div class="status" id="status"></div>
+  <datalist id="suggest"></datalist>
+</header>
+
+<aside class="panel legend">
+  <div class="lg-head"><h2>Legend</h2><div class="lg-btns"><button class="btn" id="ixOpen" type="button" title="祖語・語根・単語の索引を開く">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>索引</button>
+    <button class="btn" id="favOpen" type="button" title="登録したノードの一覧を開く"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linejoin="round"><path d="M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.8L12 16.9l-5.2 2.75 1-5.8-4.2-4.1 5.8-.85z"/></svg>登録<span class="n" id="favCount"></span></button></div></div>
+  <div class="lg-row"><span class="sw"><i class="cat"></i></span><b>Category</b><small>意味カテゴリ</small></div>
+  <div class="lg-row"><span class="sw"><i class="pie"></i></span><b>PIE</b><small>印欧祖語</small></div>
+  <div class="lg-row"><span class="sw"><i class="root"></i></span><b>Root</b><small>語根</small></div>
+  <div class="lg-row"><span class="sw"><i class="affix"></i></span><b>Affix</b><small>接頭・接尾辞</small></div>
+  <div class="lg-row"><span class="sw"><i class="word"></i></span><b>Word</b><small>英単語</small></div>
+  <div class="lg-row"><span class="sw"><i class="favsw">★</i></span><b>登録済み</b><small>黄色・★印</small></div>
+  <div class="lg-edges">
+    <div class="lg-sep"></div>
+    <div class="lg-row"><span class="sw"><i class="ln"></i></span>構成<small>Word–Part</small></div>
+    <div class="lg-row"><span class="sw"><i class="ln dash"></i></span>帰属<small>Part–PIE</small></div>
+    <div class="lg-row"><span class="sw"><i class="ln route"></i></span>道<small>探索結果</small></div>
+    <div class="lg-row"><span class="sw"><i class="more">+N</i></span>折りたたみ<small>クリックで展開</small></div>
+  </div>
+  <div class="lg-branches" id="lgBranches"></div>
+  <div class="stats" id="stats"></div>
+  <div class="warn" id="warn"></div>
+</aside>
+
+<section class="panel info" id="info" aria-live="polite"></section>
+
+<aside class="panel index" id="indexPanel" hidden>
+  <div class="ix-head"><h2>索引</h2><button class="ix-sw" id="ixToFav" type="button" title="登録済みの一覧に切り替え">★ 登録</button><button class="x" id="ixClose" type="button" title="閉じる">×</button></div>
+  <div class="ix-tabs" id="ixTabs">
+    <button type="button" data-ix="pie" class="on">祖語</button><button type="button" data-ix="part">語根・接辞</button><button type="button" data-ix="word">単語</button><button type="button" data-ix="learn" title="少ないパーツで多くの単語を説明できる順">学習順</button><button type="button" data-ix="twin" title="パーツの組み合わせが同じ単語（二重語の候補）">同構成</button>
+  </div>
+  <input class="field ix-filter" id="ixFilter" placeholder="絞り込み（綴り・意味）" spellcheck="false">
+  <div class="ix-opts" id="ixOpts"></div>
+  <div class="ix-count" id="ixCount"></div>
+  <div class="ix-list" id="ixList"></div>
+</aside>
+<aside class="panel index" id="favPanel" hidden>
+  <div class="ix-head"><h2>登録済み</h2><button class="ix-sw" id="fvToIx" type="button" title="索引に切り替え">索引</button><button class="x" id="fvClose" type="button" title="閉じる">×</button></div>
+  <div class="ix-tabs" id="fvTabs"></div>
+  <input class="field ix-filter" id="fvFilter" placeholder="絞り込み（綴り・意味）" spellcheck="false">
+  <div class="fv-sort" id="fvSort"></div>
+  <div class="ix-count" id="fvCount"></div>
+  <div id="fvUndo"></div>
+  <div class="ix-list" id="fvList"></div>
+  <div class="fv-foot">登録はこのブラウザに保存されます</div>
+</aside>
+<div class="footnote">カテゴリ → 祖語 → 単語 · ドラッグ／スクロールで操作 · Shift+クリックで道探索 · Esc で戻る</div>
+
+<div class="datapanel" id="dataPanel" hidden>
+  <div class="box">
+    <h2>データファイルを読み込めませんでした</h2>
+    <p>このページは同じフォルダの <code>etymo-data.json</code> を読み込みます。HTML をファイルとして直接開いた場合、ブラウザの制限で読み込めないことがあります。</p>
+    <p>フォルダで <code>python3 -m http.server</code> を実行し、<code>http://localhost:8000</code> を開くか、下にデータファイルをドロップしてください。</p>
+    <label class="drop" id="drop">etymo-data.json をドロップ、またはクリックして選択
+      <input type="file" id="fileInput" accept=".json,application/json" hidden></label>
+    <div class="err" id="dataErr"></div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   0. CONSTANTS & STYLES
+   ===================================================================== */
+const DATA_URL = new URLSearchParams(location.search).get("data") || "etymo-data.json";
+// ブラウザ保存（使えない環境では黙ってメモリ上だけで動く）
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+};
+const TYPE = {
+  pie:   { name: "PIE",   ja: "印欧祖語", color: "#f5b14c", size: 28, shape: "dot",     font: 17, mass: 3.2 },
+  root:  { name: "Root",  ja: "語根",     color: "#2dd4bf", size: 18, shape: "dot",     font: 15, mass: 2.2 },
+  affix: { name: "Affix", ja: "接辞",     color: "#a78bfa", size: 13, shape: "diamond", font: 14, mass: 1.6 },
+  word:  { name: "Word",  ja: "英単語",   color: "#cbd5e1", size: 7,  shape: "dot",     font: 13, mass: 1   }
+};
+const TYPE_ORDER = { pie: 0, root: 1, affix: 2, word: 3 };
+const STATUS = {
+  verified:   { ja: "照合済み", mark: "" },
+  review:     { ja: "要確認",   mark: "?" },
+  unverified: { ja: "未照合",   mark: ""  }
+};
+const ROUTE = "#fb7185";
+const BG = "#0b0e14";
+const FONT_FACE = 'Inter, "Noto Sans JP", sans-serif';
+const MONO_FACE = '"JetBrains Mono", ui-monospace, monospace';
+const FAV = "#facc15";
+const HUB_CAP = 10;          // 中心以外のノードが一度に広げる隣接数の上限（超過分は +N に折りたたむ）
+const MAX_VISIBLE = 260;     // 近傍ビューに描く最大ノード数
+const ROUTE_LIMIT = 40;
+
+const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
+const asArray = v => (v == null ? [] : Array.isArray(v) ? v : [v]);
+const pairKey = (a, b) => (a < b ? a + "|" + b : b + "|" + a);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* =====================================================================
+   1. DATA LOADING（etymo-data.json。読めなければファイル選択に切り替え）
+   ===================================================================== */
+async function loadData() {
+  try {
+    const r = await fetch(DATA_URL, { cache: "no-cache" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return await r.json();
+  } catch (e) {
+    return await askForFile(e);
+  }
+}
+function askForFile(err) {
+  const panel = document.getElementById("dataPanel");
+  const drop = document.getElementById("drop");
+  const input = document.getElementById("fileInput");
+  const errEl = document.getElementById("dataErr");
+  errEl.textContent = `（${DATA_URL}: ${err.message}）`;
+  panel.hidden = false;
+  document.getElementById("loading").classList.add("done");
+  return new Promise(resolve => {
+    const read = file => file.text().then(t => { panel.hidden = true; resolve(JSON.parse(t)); })
+      .catch(e => { errEl.textContent = "JSON として読めませんでした: " + e.message; });
+    input.addEventListener("change", () => input.files[0] && read(input.files[0]));
+    ["dragenter", "dragover"].forEach(ev => panel.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave", "drop"].forEach(ev => panel.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+    panel.addEventListener("drop", e => e.dataTransfer.files[0] && read(e.dataTransfer.files[0]));
+  });
+}
+
+/* =====================================================================
+   2. MODEL（Word ⇄ Part ⇄ PIE のみ）＋ データ検証
+   ===================================================================== */
+const ID = { pie: s => "pie:" + s, part: s => "part:" + s, word: s => "word:" + s };
+let SOURCES = {};
+let BRANCHES = new Map();      // id -> { id, name, short, color }
+const BRANCH_ORDER = ["latin", "greek", "germanic", "indic", "iranian", "celtic", "slavic", "nonie"];
+let showBranch = true;
+let CATS = new Map();          // id -> { id, name, color, buck, longman, pies:[], roots:Set, words:Set }
+// 由来によるまとまり（意味カテゴリとは別の軸）：祖語を持たない語根・接辞の行き先
+const ORIGIN = {
+  _none:    { id: "_none",    name: "祖語未詳", color: "#8b93a7", buck: "", longman: "",
+              desc: "ラテン語・ギリシア語・ゲルマン祖語などの元の語は分かるが、印欧祖語まで遡れない語根" },
+  _unknown: { id: "_unknown", name: "語源不明", color: "#a8a29e", buck: "", longman: "",
+              desc: "英語（古英語・中英語）の形より前に遡れず、借用元も分からない語根" },
+  _nonie:   { id: "_nonie",   name: "非印欧語", color: "#e2e8f0", buck: "", longman: "",
+              desc: "アラビア語・エジプト語・セム語など、印欧語族以外の言語に由来する語根" }
+};
+const isOrigin = id => Object.prototype.hasOwnProperty.call(ORIGIN, id);
+const ETYM = { unknown: { cat: "_unknown", ja: "語源不明" }, nonie: { cat: "_nonie", ja: "非印欧語" } };
+const isCat = id => typeof id === "string" && id.startsWith("cat:");
+const nodeList = [], edgeList = [], byId = new Map(), adj = new Map(), edgeByPair = new Map(), issues = [];
+let nameCount, keyCount;
+
+function buildModel(D) {
+  SOURCES = D.sources || {};
+  asArray(D.categories).forEach(c => CATS.set(c.id, { ...c, pies: [], roots: new Set(), words: new Set() }));
+  asArray(D.branches).forEach(b => BRANCHES.set(b.id, b));
+  const addNode = n => {
+    if (byId.has(n.id)) { issues.push(`重複 id: ${n.key}（${n.type}）`); return; }
+    nodeList.push(n); byId.set(n.id, n); adj.set(n.id, new Set());
+  };
+  const addEdge = (from, to, kind) => {
+    if (!byId.has(to)) { issues.push(`参照切れ: ${byId.get(from)?.name ?? from} → ${to.replace(/^\w+:/, "")}`); return; }
+    if (adj.get(from).has(to)) return;
+    const e = { id: "e:" + pairKey(from, to), from, to, kind };
+    edgeList.push(e); edgeByPair.set(pairKey(from, to), e);
+    adj.get(from).add(to); adj.get(to).add(from);
+  };
+  const status = (x, label) => {
+    const st = x.status || "unverified";
+    if (!STATUS[st]) issues.push(`status 不正: ${label} (${st})`);
+    asArray(x.src).forEach(s => { if (!SOURCES[s.id]) issues.push(`出典 id 未定義: ${label} → ${s.id}`); });
+    return STATUS[st] ? st : "unverified";
+  };
+
+  asArray(D.pie).forEach(p => {
+    if (!p.category) issues.push(`カテゴリ未設定: ${p.id}`);
+    else if (!CATS.has(p.category)) issues.push(`カテゴリ id 未定義: ${p.id} → ${p.category}`);
+    addNode({ id: ID.pie(p.id), type: "pie", key: p.id, name: p.label ?? p.id, alt: p.alt || "", gloss: p.gloss, note: p.note,
+      category: CATS.has(p.category) ? p.category : null, status: status(p, p.id), src: asArray(p.src) });
+  });
+  asArray(D.parts).forEach(p => {
+    if (!["root", "prefix", "suffix"].includes(p.kind)) issues.push(`kind 不正: ${p.id} (${p.kind})`);
+    if (p.branch && !BRANCHES.has(p.branch)) issues.push(`系統 id 未定義: ${p.id} → ${p.branch}`);
+    addNode({ id: ID.part(p.id), type: p.kind === "root" ? "root" : "affix", kind: p.kind, key: p.id, name: p.label ?? p.id,
+      gloss: p.gloss, origin: p.origin, note: p.note, forms: asArray(p.forms), pieRefs: asArray(p.pie),
+      branch: p.branch && BRANCHES.has(p.branch) ? p.branch : null, etym: ETYM[p.etym] ? p.etym : "",
+      status: status(p, p.id), src: asArray(p.src) });
+    if (p.etym && !ETYM[p.etym]) issues.push(`etym 不正: ${p.id} (${p.etym})`);
+    if (p.etym && asArray(p.pie).length) issues.push(`etym と祖語が両方ある: ${p.id}`);
+  });
+  asArray(D.words).forEach(w => {
+    if (!asArray(w.parts).length) issues.push(`パーツ未指定: ${w.id}`);
+    // 同綴り語：id の末尾 (2) は表示で上付き数字にする（bear(2) → bear²）
+    const homo = w.id.replace(/\((\d+)\)$/, (_, d) => [...d].map(c => "⁰¹²³⁴⁵⁶⁷⁸⁹"[c]).join(""));
+    addNode({ id: ID.word(w.id), type: "word", key: w.id, name: w.label ?? homo, partRefs: asArray(w.parts),
+      ja: w.ja || "", literal: w.literal || "" });
+  });
+  nodeList.filter(n => n.pieRefs).forEach(n => n.pieRefs.forEach(r => addEdge(n.id, ID.pie(r), "pie")));
+  nodeList.filter(n => n.partRefs).forEach(n => n.partRefs.forEach(r => addEdge(n.id, ID.part(r), "part")));
+  nodeList.forEach(n => {
+    if (n.type !== "word" && adj.get(n.id).size === 0) issues.push(`孤立ノード: ${n.name}`);
+    if ((n.type === "root" || n.type === "affix") && ![...adj.get(n.id)].some(x => byId.get(x).type === "word")) issues.push(`未使用パーツ: ${n.name}`);
+  });
+  // カテゴリは祖語が持ち、パーツ・単語はそこから引き継ぐ（単語は語根のカテゴリを優先）
+  nodeList.forEach(n => {
+    if (n.type === "pie") { n.cats = n.category ? [n.category] : []; if (n.category) CATS.get(n.category).pies.push(n); }
+  });
+  nodeList.forEach(n => {
+    if (n.type !== "root" && n.type !== "affix") return;
+    n.cats = [...new Set(n.pieRefs.map(r => byId.get(ID.pie(r))?.category).filter(Boolean))];
+    if (!n.cats.length) n.cats = [n.etym ? ETYM[n.etym].cat : "_none"];
+  });
+  // 祖語ごとの系統（その祖語に属するパーツの branch の集合）
+  nodeList.forEach(n => {
+    if (n.type !== "pie") return;
+    n.branches = BRANCH_ORDER.filter(b => [...adj.get(n.id)].some(x => byId.get(x).branch === b));
+  });
+  Object.values(ORIGIN).forEach(o => { if (nodeList.some(n => n.cats && n.cats[0] === o.id)) CATS.set(o.id, { ...o, pies: [], roots: new Set(), words: new Set() }); });
+  nodeList.forEach(n => {
+    if (n.type !== "word") return;
+    const parts = n.partRefs.map(r => byId.get(ID.part(r))).filter(Boolean);
+    const roots = parts.filter(x => x.type === "root");
+    n.cats = [...new Set((roots.length ? roots : parts).flatMap(x => x.cats))];
+  });
+  nodeList.forEach(n => {
+    if (n.type === "root" || n.type === "affix") n.cats.forEach(c => CATS.get(c).roots.add(n.id));
+    // カテゴリの単語数：そのカテゴリの語根・接辞を1つでも含む単語
+    if (n.type === "word") n.partRefs.forEach(r => { const pt = byId.get(ID.part(r)); if (pt) pt.cats.forEach(c => CATS.get(c).words.add(n.id)); });
+  });
+  nameCount = nodeList.reduce((m, n) => m.set(n.name, (m.get(n.name) || 0) + 1), new Map());
+  keyCount = nodeList.reduce((m, n) => m.set(n.key, (m.get(n.key) || 0) + 1), new Map());
+}
+const displayKey = n => nameCount.get(n.name) > 1
+  ? (keyCount.get(n.key) > 1 ? `${n.key} (${TYPE[n.type].name})` : n.key)
+  : n.name;
+const sortNodes = arr => arr.sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type] || a.name.localeCompare(b.name));
+const neighborsOf = (id, type) => sortNodes([...adj.get(id)].map(x => byId.get(x)).filter(n => !type || n.type === type));
+
+/* =====================================================================
+   3. STYLING（node: base | on | off | focus / edge: base | on | off | path）
+   ===================================================================== */
+// ノード名の表示：both=英+日 / en=英 / ja=日（日本語がない語は英語で出す）
+const LABEL_MODES = ["both", "en", "ja"];
+let labelMode = LABEL_MODES.includes(store.get("etymo-label")) ? store.get("etymo-label") : "both";
+function labelOf(n) {
+  if (n.type === "word") return !n.ja || labelMode === "en" ? n.name : labelMode === "ja" ? n.ja : `${n.name}\n<i>${n.ja}</i>`;
+  const mark = STATUS[n.status].mark ? " " + STATUS[n.status].mark : "";
+  if (labelMode === "en") return `<b>${n.name}${mark}</b>`;
+  if (labelMode === "ja") return `<b>${n.gloss || n.name}${mark}</b>`;
+  return `<b>${n.name}</b>\n<i>${n.gloss}${mark}</i>`;
+}
+// B: ズーム段階。0=引き（祖語・カテゴリだけ文字）、1=中（語根も）、2=寄り（全部）
+let zoomTier = 2;
+const tierOf = sc => (sc < 0.5 ? 0 : sc < 0.85 ? 1 : 2);
+function nodeStyle(n, state) {
+  const t = TYPE[n.type];
+  const off = state === "off", focus = state === "focus", on = state === "on";
+  const isWord = n.type === "word";
+  const fav = isFav(n.id);   // 登録済み：単語は本体と文字を黄色に、祖語・語根・接辞は名前を黄色に＋★印（afterDrawing）
+  const wc = fav ? FAV : t.color;
+  const bg = isWord ? (off ? "rgba(18,24,38,.35)" : focus ? wc : "#121826") : (off ? rgba(t.color, 0.12) : t.color);
+  const br = showBranch && n.branch && BRANCHES.get(n.branch);
+  // 系統の色は本体の外側の輪で示す（本体との間に暗い隙間を入れて同化を防ぐ。輪は beforeDrawing で描く）
+  if (br) ringOf.set(n.id, { color: off ? rgba(br.color, 0.2) : br.color, size: t.size * (focus ? 1.25 : 1), diamond: t.shape === "diamond", dash: n.etym === "unknown" });
+  else ringOf.delete(n.id);
+  const border = focus ? "#ffffff" : br ? BG : off ? rgba(wc, fav ? 0.3 : 0.15) : wc;
+  const main = fav ? (off ? rgba(FAV, 0.28) : FAV) : off ? "rgba(230,233,239,.13)" : (isWord && !on && !focus ? "#c9d1dd" : "#f3f5f8");
+  const sub = fav && isWord ? (off ? rgba(FAV, 0.18) : rgba(FAV, 0.8)) : off ? "rgba(139,147,167,.1)" : rgba(t.color, 0.92);
+  favDraw.set(n.id, { off, size: t.size * (focus ? 1.25 : 1), word: isWord });
+  if (!fav) favDraw.delete(n.id);
+  let size = isWord ? t.font + (focus ? 3 : on ? 1 : 0) : t.font + (focus ? 2 : 0);
+  // 引いた状態：祖語の文字を大きく、語根・単語の文字は隠す（ホバー中・中心・道のノードは常に表示）
+  const emphasized = focus || on || fav;
+  let hideLabel = false;
+  if (zoomTier < 2 && !emphasized) {
+    if (n.type === "pie") size = Math.round(size * (zoomTier === 0 ? 1.9 : 1.35));
+    else if (isWord) hideLabel = true;
+    else if (zoomTier === 0) hideLabel = true;
+    else size = Math.round(size * 1.15);
+  }
+  let shadow = { enabled: false };
+  if (!off && (focus || (!isWord && (on || n.type === "pie")))) {
+    shadow = { enabled: true, color: rgba(t.color, focus ? 0.7 : 0.45), size: focus ? 30 : on ? 14 : 16, x: 0, y: 0 };
+  }
+  if (!off && fav && isWord) shadow = { enabled: true, color: rgba(FAV, focus ? 0.75 : 0.55), size: focus ? 26 : 14, x: 0, y: 0 };
+  const jaFace = labelMode === "ja" ? FONT_FACE : MONO_FACE;
+  return {
+    color: { background: bg, border, highlight: { background: bg, border }, hover: { background: bg, border } },
+    borderWidth: isWord ? (focus ? 2.5 : 2) : (focus ? 3 : br ? RING.gap : 1),
+    size: t.size * (focus ? 1.25 : 1),
+    shadow,
+    font: hideLabel
+      ? { multi: "html", size: 1, color: "rgba(0,0,0,0)", strokeWidth: 0, bold: { size: 1, color: "rgba(0,0,0,0)" }, ital: { size: 1, color: "rgba(0,0,0,0)" } }
+      : { multi: "html", face: isWord ? FONT_FACE : MONO_FACE, size, color: main, strokeWidth: off ? 0 : 4, strokeColor: BG,
+          bold: { face: jaFace, size, color: main, mod: "bold" },
+          ital: { face: FONT_FACE, size: Math.round(size * 0.72), color: sub, mod: "" } }
+  };
+}
+function moreStyle(state) {
+  const off = state === "off";
+  return {
+    shape: "box", margin: { top: 4, bottom: 4, left: 7, right: 7 }, borderWidth: 1,
+    shapeProperties: { borderDashes: [3, 3], borderRadius: 6 },
+    color: { background: off ? "rgba(27,33,48,.3)" : "#1b2130", border: off ? "rgba(75,84,104,.25)" : "#5b6478",
+             highlight: { background: "#1b2130", border: "#8b93a7" }, hover: { background: "#232a3b", border: "#8b93a7" } },
+    font: { face: MONO_FACE, size: 12, color: off ? "rgba(139,147,167,.2)" : "#aab2c3", multi: false, strokeWidth: 0 },
+    shadow: { enabled: false }
+  };
+}
+function catLabel(c) {
+  return `<b>${c.name}</b>\n<i>${isOrigin(c.id) ? "" : `祖語 ${c.pies.length} · `}語根・接辞 ${c.roots.size} · 単語 ${c.words.size}</i>`;
+}
+function catStyle(c, state) {
+  const off = state === "off", focus = state === "focus";
+  return {
+    shape: "box", margin: { top: 10, bottom: 10, left: 14, right: 14 }, borderWidth: focus ? 3 : 2,
+    shapeProperties: { borderRadius: 10, borderDashes: isOrigin(c.id) ? [6, 4] : false },
+    color: { background: off ? "rgba(20,26,38,.35)" : "#141a26", border: off ? rgba(c.color, 0.2) : c.color,
+             highlight: { background: "#141a26", border: c.color }, hover: { background: "#1a2131", border: c.color } },
+    shadow: off ? { enabled: false } : { enabled: true, color: rgba(c.color, focus ? 0.55 : 0.3), size: focus ? 28 : 16, x: 0, y: 0 },
+    font: { multi: "html", face: FONT_FACE, size: focus ? 19 : 17, color: off ? "rgba(230,233,239,.2)" : "#f3f5f8", strokeWidth: 0,
+      bold: { face: FONT_FACE, size: focus ? 19 : 17, color: off ? "rgba(230,233,239,.2)" : "#f3f5f8", mod: "bold" },
+      ital: { face: FONT_FACE, size: 11, color: off ? "rgba(139,147,167,.15)" : rgba(c.color, 0.95), mod: "" } }
+  };
+}
+function edgeStyle(e, state) {
+  if (e.kind === "cat") {
+    const col = CATS.get(e.cat).color;
+    const c = state === "off" ? rgba(col, 0.06) : state === "on" ? col : rgba(col, 0.4);
+    return { color: { color: c, highlight: c, hover: c, inherit: false }, width: state === "on" ? 2 : 1.2, dashes: [2, 5], shadow: { enabled: false } };
+  }
+  if (e.kind === "more") {
+    const c = state === "off" ? "rgba(91,100,120,.08)" : "rgba(91,100,120,.55)";
+    return { color: { color: c, highlight: c, hover: c, inherit: false }, width: 1, dashes: [2, 4], shadow: { enabled: false } };
+  }
+  const target = byId.get(e.to);
+  const tint = e.kind === "pie" ? TYPE.pie.color : TYPE[target.type].color;
+  const neutral = e.kind === "pie" ? rgba(TYPE.pie.color, 0.45) : "rgba(100,116,139,.5)";
+  const c = state === "path" ? ROUTE : state === "on" ? tint : state === "off" ? "rgba(100,116,139,.06)" : neutral;
+  return {
+    color: { color: c, highlight: c, hover: c, inherit: false },
+    width: state === "path" ? 4 : state === "on" ? (e.kind === "pie" ? 2.4 : 2) : (e.kind === "pie" ? 1.5 : 1.1),
+    dashes: e.kind === "pie" && state !== "path" ? [6, 5] : false,
+    shadow: state === "path" ? { enabled: true, color: rgba(ROUTE, 0.65), size: 14, x: 0, y: 0 } : { enabled: false }
+  };
+}
+
+/* =====================================================================
+   4. NETWORK（表示中の部分グラフだけを DataSet に載せる）
+   ===================================================================== */
+const container = document.getElementById("graph");
+const nodesDS = new vis.DataSet();
+const edgesDS = new vis.DataSet();
+const ringOf = new Map();
+const RING = { gap: 3, width: 3.5 };
+const network = new vis.Network(container, { nodes: nodesDS, edges: edgesDS }, {
+  autoResize: true,
+  nodes: { chosen: false, labelHighlightBold: false },
+  edges: { chosen: false, smooth: { type: "continuous", roundness: 0.3 }, selectionWidth: 0, hoverWidth: 0 },
+  interaction: { hover: true, dragNodes: true, dragView: true, zoomView: true, selectConnectedEdges: false, hoverConnectedEdges: false },
+  physics: {
+    enabled: false,
+    solver: "forceAtlas2Based",
+    forceAtlas2Based: { gravitationalConstant: -80, centralGravity: 0.015, springLength: 85, springConstant: 0.07, damping: 0.55, avoidOverlap: 0.7 },
+    stabilization: { enabled: false },
+    maxVelocity: 40, minVelocity: 0.5
+  }
+});
+
+
+// 系統の輪：本体の枠（暗い隙間）の外側に、系統の色の輪を描く
+network.on("beforeDrawing", ctx => {
+  const ids = nodesDS.getIds().filter(id => ringOf.has(id));
+  if (!ids.length) return;
+  const pos = network.getPositions(ids);
+  ctx.save();
+  ctx.lineWidth = RING.width;
+  for (const id of ids) {
+    const r = ringOf.get(id), p = pos[id];
+    if (!p) continue;
+    const d = RING.gap / 2 + RING.width / 2;
+    ctx.strokeStyle = r.color;
+    ctx.setLineDash(r.dash ? [4, 3] : []);
+    ctx.beginPath();
+    if (r.diamond) {
+      const R = r.size + d * Math.SQRT2;
+      ctx.moveTo(p.x, p.y - R); ctx.lineTo(p.x + R, p.y); ctx.lineTo(p.x, p.y + R); ctx.lineTo(p.x - R, p.y); ctx.closePath();
+    } else ctx.arc(p.x, p.y, r.size + d, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+});
+
+// 登録済みの祖語・語根・接辞に★印（本体の色は種類を表すので変えない）
+const favDraw = new Map();   // id -> { off, size, word }
+function starPath(ctx, x, y, R) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 ? R * 0.45 : R, a = -Math.PI / 2 + i * Math.PI / 5;
+    ctx.lineTo(x + r * Math.cos(a), y + r * Math.sin(a));
+  }
+  ctx.closePath();
+}
+network.on("afterDrawing", ctx => {
+  const ids = [...favDraw.keys()].filter(id => visible.has(id) && !favDraw.get(id).word);
+  if (!ids.length) return;
+  const pos = network.getPositions(ids);
+  const sc = network.getScale();
+  ctx.save();
+  ctx.lineJoin = "round";
+  for (const id of ids) {
+    const f = favDraw.get(id), p = pos[id];
+    if (!p) continue;
+    // 画面上で最低 8px 程度の大きさを保つ（引いた状態でも見えるように）
+    const R = Math.max(f.size * 0.5, 8 / sc), k = f.size * 0.72 + R * 0.35;
+    ctx.globalAlpha = f.off ? 0.3 : 1;
+    starPath(ctx, p.x + k, p.y - k, R);
+    ctx.lineWidth = Math.max(3, 3 / sc); ctx.strokeStyle = BG; ctx.stroke();
+    ctx.fillStyle = FAV; ctx.fill();
+  }
+  ctx.restore();
+});
+
+// 配置が変わったら少しだけ物理演算で整え、その後は固定
+let settleCb = null;
+function settle(iterations, after) {
+  settleCb = after || null;
+  network.setOptions({ physics: { enabled: true } });
+  network.stabilize(iterations);
+}
+network.on("stabilizationIterationsDone", () => {
+  network.setOptions({ physics: { enabled: false } });
+  const cb = settleCb; settleCb = null; cb && cb();
+});
+network.on("stabilizationProgress", p => { document.getElementById("loadBar").style.width = (p.iterations / p.total * 100) + "%"; });
+
+function updateTier() {
+  const t = tierOf(network.getScale());
+  if (t === zoomTier) return;
+  zoomTier = t;
+  lastState.clear();
+  render();
+}
+let tierRaf = 0;
+network.on("zoom", () => { cancelAnimationFrame(tierRaf); tierRaf = requestAnimationFrame(updateTier); });
+network.on("animationFinished", updateTier);
+function fitNodes(ids, duration = 600, maxScale = 1.3) {
+  const pos = network.getPositions(ids);
+  const pts = Object.values(pos);
+  if (!pts.length) return;
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const W = container.clientWidth, H = container.clientHeight, wide = W > 900;
+  const left = wide ? 410 : 0, right = wide ? ((document.body.classList.contains("index-open") || document.body.classList.contains("fav-open")) ? 340 : 240) : 0;
+  const bw = maxX - minX + 160, bh = maxY - minY + 120;
+  const scale = Math.min((W - left - right) / bw, (H - 40) / bh, maxScale);
+  const offsetPx = left + (W - left - right) / 2 - W / 2;
+  network.moveTo({ position: { x: (minX + maxX) / 2 - offsetPx / scale, y: (minY + maxY) / 2 }, scale,
+    animation: duration ? { duration, easingFunction: "easeInOutCubic" } : false });
+  if (!duration) updateTier();
+}
+
+/* =====================================================================
+   5. VIEWS（地図 / 近傍 / 道）
+   ===================================================================== */
+let current = null;            // { mode: "home" } | { mode: "focus", id } | { mode: "route", from, to }
+const stack = [];
+let depth = 2;
+let expanded = new Set();      // 折りたたみを解除したハブ
+let visible = new Map();       // id -> dist（表示中のノード）
+let visEdges = [];             // 表示中のエッジ
+let route = null;              // { all, idx }
+let hovered = null;
+const lastState = new Map();
+
+const isMore = id => id.startsWith("more:");
+
+// 近傍の部分グラフを作る：中心から depth ホップ。中心以外の大きなハブは HUB_CAP 個までに折りたたむ
+function buildNeighborhood(focus, d) {
+  const dist = new Map([[focus, 0]]);
+  const parent = new Map();
+  const mores = [];
+  let frontier = [focus];
+  for (let level = 0; level < d && dist.size < MAX_VISIBLE; level++) {
+    const next = [];
+    for (const n of frontier) {
+      const nbrs = neighborsOf(n).map(x => x.id);
+      let shown = nbrs;
+      if (n !== focus && !expanded.has(n) && nbrs.length > HUB_CAP) {
+        const already = nbrs.filter(m => dist.has(m));
+        const rest = nbrs.filter(m => !dist.has(m));
+        shown = already.concat(rest.slice(0, Math.max(0, HUB_CAP - already.length)));
+        const hidden = nbrs.length - shown.length;
+        if (hidden > 0) mores.push({ hub: n, hidden });
+      }
+      for (const m of shown) {
+        if (dist.has(m)) continue;
+        if (dist.size >= MAX_VISIBLE) { mores.push({ hub: n, hidden: nbrs.filter(x => !dist.has(x)).length }); break; }
+        dist.set(m, level + 1); parent.set(m, n); next.push(m);
+      }
+    }
+    frontier = next;
+  }
+  // 表示ノード間のエッジは全部描く（共有パーツの交差が見える）
+  const edges = [];
+  edgeList.forEach(e => { if (dist.has(e.from) && dist.has(e.to)) edges.push(e); });
+  const seen = new Set();
+  mores.forEach(({ hub, hidden }) => {
+    if (seen.has(hub)) return; seen.add(hub);
+    const id = "more:" + hub;
+    dist.set(id, (dist.get(hub) || 0) + 1); parent.set(id, hub);
+    edges.push({ id: "m:" + hub, from: hub, to: id, kind: "more", hidden });
+  });
+  return { dist, parent, edges, mores: [...seen] };
+}
+
+// DataSet を差し替える。残るノードは位置を保ち、新しいノードは親の近くに置く
+function applyGraph(dist, parent, edges, { positions = null, keep = true } = {}) {
+  const oldPos = keep ? network.getPositions() : {};
+  const pos = Object.assign({}, oldPos);
+  if (!keep) nodesDS.clear();
+  const remove = nodesDS.getIds().filter(id => !dist.has(id));
+  nodesDS.remove(remove);
+  const add = [];
+  dist.forEach((dd, id) => {
+    if (nodesDS.get(id)) return;
+    let xy = positions && positions[id];
+    if (!xy) {
+      const p = pos[parent.get(id)] || { x: 0, y: 0 };
+      const a = Math.random() * Math.PI * 2, r = 70 + Math.random() * 60;
+      xy = { x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r };
+    }
+    pos[id] = xy;
+    if (isCat(id)) {
+      const c = CATS.get(id.slice(4));
+      add.push({ id, label: catLabel(c), x: xy.x, y: xy.y, mass: 4, ...catStyle(c, "base") });
+    } else if (isMore(id)) {
+      const hubId = id.slice(5);
+      const e = edges.find(x => x.to === id);
+      add.push({ id, label: `+${e ? e.hidden : ""}`, x: xy.x, y: xy.y, mass: 1, ...moreStyle("base") });
+    } else {
+      const n = byId.get(id);
+      add.push({ id, label: labelOf(n), shape: TYPE[n.type].shape, mass: TYPE[n.type].mass, x: xy.x, y: xy.y, ...nodeStyle(n, "base") });
+    }
+  });
+  nodesDS.add(add);
+  // more ノードのラベル（隠れた数）を更新
+  edges.filter(e => e.kind === "more").forEach(e => { if (nodesDS.get(e.to)) nodesDS.update({ id: e.to, label: `+${e.hidden}` }); });
+
+  const want = new Set(edges.map(e => e.id));
+  edgesDS.remove(edgesDS.getIds().filter(id => !want.has(id)));
+  edgesDS.add(edges.filter(e => !edgesDS.get(e.id)).map(e => ({
+    id: e.id, from: e.from, to: e.to,
+    length: e.kind === "cat" ? 150 : e.kind === "more" ? 60 : e.kind === "pie" ? 95 : byId.get(e.to).type === "root" ? 70 : 120,
+    ...edgeStyle(e, "base")
+  })));
+  visible = dist; visEdges = edges;
+  lastState.clear();
+}
+
+function showHome() {
+  route = null;
+  const all = [...CATS.values()].filter(c => c.pies.length || c.roots.size);
+  const cats = all.filter(c => !isOrigin(c.id)), origins = all.filter(c => isOrigin(c.id));
+  const dist = new Map(), positions = {};
+  const R = 170 + all.length * 9;
+  cats.forEach((c, i) => {
+    const id = "cat:" + c.id, a = -Math.PI / 2 + (i / cats.length) * Math.PI * 2;
+    dist.set(id, 0);
+    positions[id] = { x: Math.cos(a) * R * 1.65, y: Math.sin(a) * R };
+  });
+  // 由来のまとまり（祖語未詳・語源不明・非印欧語）は輪の内側に横一列で置く
+  origins.forEach((c, i) => {
+    const id = "cat:" + c.id;
+    dist.set(id, 0);
+    positions[id] = { x: (i - (origins.length - 1) / 2) * 250, y: 0 };
+  });
+  nodesDS.getIds().forEach(id => { if (nodesDS.get(id).fixed) nodesDS.update({ id, fixed: false }); });
+  applyGraph(dist, new Map(), [], { positions, keep: false });
+  setStatus(`カテゴリ <b>${cats.length}</b>${origins.length ? ` ＋ 由来のまとまり <b>${origins.length}</b>` : ""} · 祖語 <b>${count("pie")}</b> · 単語 <b>${count("word")}</b>（クリックで中へ）`);
+  renderInfo(); render();
+  fitNodes([...dist.keys()], 0, 1.4);
+  doneLoading();
+}
+
+// カテゴリの中身：そのカテゴリの祖語と、祖語に属する語根・接辞
+function showCategory(cid) {
+  route = null;
+  const c = CATS.get(cid);
+  const catId = "cat:" + cid;
+  const dist = new Map([[catId, 0]]), parent = new Map(), edges = [];
+  if (isOrigin(cid)) {
+    [...c.roots].forEach(id => { dist.set(id, 1); parent.set(id, catId); edges.push({ id: "c:" + id, from: catId, to: id, kind: "cat", cat: cid }); });
+  } else {
+    c.pies.forEach(p => { dist.set(p.id, 1); parent.set(p.id, catId); edges.push({ id: "c:" + p.id, from: catId, to: p.id, kind: "cat", cat: cid }); });
+    c.pies.forEach(p => neighborsOf(p.id).filter(x => x.type !== "word").forEach(x => { if (!dist.has(x.id)) { dist.set(x.id, 2); parent.set(x.id, p.id); } }));
+  }
+  edgeList.forEach(e => { if (dist.has(e.from) && dist.has(e.to)) edges.push(e); });
+  nodesDS.getIds().forEach(id => { if (nodesDS.get(id).fixed) nodesDS.update({ id, fixed: false }); });
+  applyGraph(dist, parent, edges, { keep: false });
+  nodesDS.update({ id: catId, x: 0, y: 0, fixed: { x: true, y: true } });
+  setStatus(`${isOrigin(cid) ? "由来" : "カテゴリ"} <b>${esc(c.name)}</b>${isOrigin(cid) ? "" : ` · 祖語 <b>${c.pies.length}</b>`} · 語根・接辞 <b>${c.roots.size}</b> · 単語 ${c.words.size}`);
+  renderInfo(); render();
+  settle(180, () => fitNodes([...dist.keys()], 600, 1.2));
+}
+
+function showFocus(id, { resetExpand = true } = {}) {
+  route = null;
+  if (resetExpand) expanded = new Set();
+  const { dist, parent, edges } = buildNeighborhood(id, depth);
+  const fromHome = !current || current.mode !== "focus";
+  // 前の中心の固定を外し、新しい中心を固定
+  nodesDS.getIds().forEach(nid => { if (nodesDS.get(nid).fixed) nodesDS.update({ id: nid, fixed: false }); });
+  applyGraph(dist, parent, edges, { keep: !fromHome });
+  if (fromHome || !network.getPositions([id])[id]) nodesDS.update({ id, x: 0, y: 0 });
+  nodesDS.update({ id, fixed: { x: true, y: true } });
+  const n = byId.get(id);
+  const shown = [...dist.keys()].filter(x => !isMore(x)).length;
+  setStatus(`<b>${esc(n.name)}</b> の周囲 ${depth} ホップ · 表示 <b>${shown}</b> / ${nodeList.length}`);
+  renderInfo(); render();
+  settle(140, () => fitNodes([...dist.keys()]));
+}
+
+function showRoute(a, b) {
+  const strict = !viaAffixEl.checked;
+  let all = shortestPaths(a, b, !strict), fallback = false;
+  // 「接辞も経由」オフで繋がらないときは、接辞を通る道に切り替えてその旨を示す
+  if (!all.length && strict) { all = fewestAffixPaths(a, b); fallback = all.length > 0; }
+  if (!all.length) {
+    const A = byId.get(a), B = byId.get(b);
+    setPathHint(`「${A.name}」と「${B.name}」は、どのパーツ・祖語を通っても繋がっていません（祖語の分からない孤立した語根など）`, "err");
+    return false;
+  }
+  route = { all, idx: 0, fallback };
+  drawRoute();
+  const more = all.length > 1 ? `・同じ長さの道 ${all.length}${all.length >= ROUTE_LIMIT ? "+" : ""} 本` : "";
+  const nAff = fallback ? all[0].slice(1, -1).filter(x => byId.get(x).type === "affix").length : 0;
+  if (fallback) setPathHint(`接辞を通らないと繋がらないため、通る接辞ができるだけ少ない道を表示しています（接辞 ${nAff} 個・${all[0].length - 1} ステップ${more}）`, "note");
+  else setPathHint(`${all[0].length - 1} ステップで到達${more}${strict ? "（接辞を経由しない道）" : ""}`, "ok");
+  return true;
+}
+function drawRoute() {
+  const ids = route.all[route.idx];
+  const dist = new Map(ids.map((id, i) => [id, i]));
+  const edges = ids.slice(1).map((id, i) => edgeByPair.get(pairKey(ids[i], id)));
+  const positions = {};
+  ids.forEach((id, i) => { positions[id] = { x: i * 165, y: (i % 2 ? 1 : -1) * 46 }; });
+  nodesDS.getIds().forEach(nid => { if (nodesDS.get(nid).fixed) nodesDS.update({ id: nid, fixed: false }); });
+  applyGraph(dist, new Map(), edges, { positions, keep: false });
+  const a = byId.get(ids[0]), b = byId.get(ids[ids.length - 1]);
+  setStatus(`道: <b>${esc(a.name)}</b> → <b>${esc(b.name)}</b> · ${ids.length - 1} ステップ`);
+  renderInfo(); render();
+  fitNodes(ids, 500, 1.4);
+}
+
+function go(state, { push = true } = {}) {
+  if (push && current) stack.push(current);
+  if (stack.length > 100) stack.shift();
+  const prev = current;
+  current = state;
+  writeHash(state);
+  if (state.mode === "home") showHome();
+  else if (state.mode === "cat") showCategory(state.id);
+  else if (state.mode === "focus") showFocus(state.id);
+  else if (state.mode === "route") {
+    if (!showRoute(state.from, state.to)) { current = prev; if (push) stack.pop(); writeHash(prev || { mode: "home" }); }
+  }
+  document.getElementById("backBtn").disabled = !stack.length;
+  syncDepthSeg();
+}
+function back() {
+  if (!stack.length) return;
+  current = stack.pop();
+  writeHash(current);
+  if (current.mode === "home") showHome();
+  else if (current.mode === "cat") showCategory(current.id);
+  else if (current.mode === "focus") showFocus(current.id);
+  else showRoute(current.from, current.to);
+  document.getElementById("backBtn").disabled = !stack.length;
+  syncDepthSeg();
+}
+function stateToHash(s) {
+  if (!s || s.mode === "home") return "";
+  if (s.mode === "focus") return "f=" + encodeURIComponent(s.id);
+  if (s.mode === "cat") return "c=" + encodeURIComponent(s.id);
+  return "r=" + encodeURIComponent(s.from) + "|" + encodeURIComponent(s.to);
+}
+function hashToState(h) {
+  h = h.replace(/^#/, "");
+  try {
+    if (h.startsWith("c=")) { const id = decodeURIComponent(h.slice(2)); if (CATS.has(id)) return { mode: "cat", id }; }
+    if (h.startsWith("f=")) {
+      const id = decodeURIComponent(h.slice(2));
+      if (byId.has(id)) return { mode: "focus", id };
+      if (byId.has(id + "(1)")) return { mode: "focus", id: id + "(1)" };   // 番号が後から付いた祖語
+      const old = id.replace(/^pie:/, "").replace(/\(\d+\)$/, "");
+      const hit = nodeList.find(n => n.type === "pie" && n.alt === old);   // 旧表記のリンクにも対応
+      if (hit) return { mode: "focus", id: hit.id };
+    }
+    if (h.startsWith("r=")) { const [a, b] = h.slice(2).split("|").map(decodeURIComponent); if (byId.has(a) && byId.has(b)) return { mode: "route", from: a, to: b }; }
+  } catch (e) {}
+  return { mode: "home" };
+}
+function writeHash(s) { try { history.replaceState(null, "", location.pathname + location.search + (stateToHash(s) ? "#" + stateToHash(s) : "")); } catch (e) {} }
+
+function setStatus(html) { document.getElementById("status").innerHTML = html; }
+const count = t => nodeList.filter(n => n.type === t).length;
+function doneLoading() { document.getElementById("loading").classList.add("done"); }
+
+/* =====================================================================
+   6. HIGHLIGHT（ホバー中は隣接だけ、近傍ビューでは中心を強調）
+   ===================================================================== */
+function render() {
+  let nodeState, edgeState;
+  const hov = hovered && !isMore(hovered) && !isCat(hovered) ? hovered : null;
+  const center = hov || (current && !route ? (current.mode === "focus" ? current.id : current.mode === "cat" ? "cat:" + current.id : null) : null);
+  if (route && !hovered) {
+    const ids = route.all[route.idx];
+    const ends = new Set([ids[0], ids[ids.length - 1]]);
+    nodeState = id => (ends.has(id) ? "focus" : "on");
+    edgeState = () => "path";
+  } else if (hov) {
+    const set = new Set([hov, ...[...adj.get(hov)].filter(x => visible.has(x))]);
+    visEdges.forEach(e => { if (e.kind === "cat" && e.to === hov) set.add(e.from); });
+    nodeState = id => (id === hov ? "focus" : set.has(id) ? "on" : "off");
+    edgeState = e => (e.kind === "cat" ? (e.to === hov ? "on" : "off")
+      : e.kind !== "more" && set.has(e.from) && set.has(e.to) && (e.from === hov || e.to === hov) ? "on" : "off");
+  } else if (center) {
+    nodeState = id => (id === center ? "focus" : "base");
+    edgeState = () => "base";
+  } else {
+    nodeState = () => "base";
+    edgeState = () => "base";
+  }
+  const nUp = [], eUp = [];
+  visible.forEach((_, id) => {
+    const st = nodeState(id);
+    if (lastState.get(id) === st) return;
+    lastState.set(id, st);
+    nUp.push({ id, ...(isMore(id) ? moreStyle(st) : isCat(id) ? catStyle(CATS.get(id.slice(4)), st) : nodeStyle(byId.get(id), st)) });
+  });
+  visEdges.forEach(e => {
+    const st = edgeState(e);
+    if (lastState.get(e.id) === st) return;
+    lastState.set(e.id, st);
+    eUp.push({ id: e.id, ...edgeStyle(e, st) });
+  });
+  if (nUp.length) nodesDS.update(nUp);
+  if (eUp.length) edgesDS.update(eUp);
+}
+
+/* =====================================================================
+   7. ROUTE FINDING（全データ上で BFS。表示とは独立）
+   ===================================================================== */
+function shortestPaths(src, dst, viaAffix, limit = ROUTE_LIMIT) {
+  const dist = new Map([[src, 0]]), parents = new Map([[src, []]]);
+  let frontier = [src];
+  while (frontier.length && !dist.has(dst)) {
+    const next = [];
+    for (const n of frontier) for (const m of adj.get(n)) {
+      if (!viaAffix && m !== dst && byId.get(m).type === "affix") continue;
+      if (!dist.has(m)) { dist.set(m, dist.get(n) + 1); parents.set(m, [n]); next.push(m); }
+      else if (dist.get(m) === dist.get(n) + 1) parents.get(m).push(n);
+    }
+    frontier = next;
+  }
+  if (!dist.has(dst)) return [];
+  const out = [];
+  (function walk(n, acc) {
+    if (out.length >= limit) return;
+    if (n === src) { out.push([src, ...acc]); return; }
+    parents.get(n).forEach(p => walk(p, [n, ...acc]));
+  })(dst, []);
+  // 同じ長さなら「語根・接頭辞の共有」＞「PIE経由」＞「接尾辞の共有」の順
+  const score = p => p.slice(1, -1).reduce((s, x) => { const n = byId.get(x); return s + (n.kind === "suffix" ? 10 : n.type === "pie" ? 1 : 0); }, 0);
+  return out.sort((a, b) => score(a) - score(b));
+}
+
+// 「接辞も経由」オフで繋がらないとき用：通る接辞の数が最少の道（同数なら短い道）を探す
+function fewestAffixPaths(src, dst, limit = ROUTE_LIMIT) {
+  const W = 100000, cost = new Map([[src, 0]]), parents = new Map([[src, []]]), done = new Set();
+  const heap = [[0, src]];
+  const push = x => { heap.push(x); let i = heap.length - 1; while (i) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+  const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+  while (heap.length) {
+    const [c, n] = pop();
+    if (done.has(n) || c !== cost.get(n)) continue;
+    done.add(n);
+    if (n === dst) break;
+    for (const m of adj.get(n)) {
+      const nc = c + 1 + (m !== dst && byId.get(m).type === "affix" ? W : 0);
+      if (!cost.has(m) || nc < cost.get(m)) { cost.set(m, nc); parents.set(m, [n]); push([nc, m]); }
+      else if (nc === cost.get(m) && !done.has(m)) parents.get(m).push(n);
+    }
+  }
+  if (!cost.has(dst)) return [];
+  const out = [];
+  (function walk(n, acc) {
+    if (out.length >= limit) return;
+    if (n === src) { out.push([src, ...acc]); return; }
+    parents.get(n).forEach(p => walk(p, [n, ...acc]));
+  })(dst, []);
+  const score = p => p.slice(1, -1).reduce((s, x) => { const n = byId.get(x); return s + (n.kind === "suffix" ? 10 : n.type === "pie" ? 1 : 0); }, 0);
+  return out.sort((a, b) => score(a) - score(b));
+}
+
+const pFrom = document.getElementById("pFrom");
+const pTo = document.getElementById("pTo");
+const viaAffixEl = document.getElementById("viaAffix");
+{ const v = store.get("etymo-via-affix"); if (v === "0" || v === "1") viaAffixEl.checked = v === "1"; }
+const pathHint = document.getElementById("pathHint");
+const PATH_HINT = pathHint.textContent;
+const pathSel = { from: null, to: null };
+
+function setPathHint(text, cls = "") { pathHint.textContent = text; pathHint.className = "hint" + (cls ? " " + cls : ""); }
+function resolveInput(input, which) {
+  const v = input.value.trim();
+  if (!v) return null;
+  const cur = pathSel[which] && byId.get(pathSel[which]);
+  if (cur && displayKey(cur) === v) return cur;
+  return findNode(v);
+}
+function runRoute() {
+  const a = resolveInput(pFrom, "from"), b = resolveInput(pTo, "to");
+  const bad = !a ? pFrom : !b ? pTo : null;
+  if (bad) {
+    bad.classList.remove("miss"); void bad.offsetWidth; bad.classList.add("miss");
+    setPathHint(`${bad === pFrom ? "出発" : "到着"}「${bad.value.trim() || "未入力"}」が見つかりません`, "err");
+    return;
+  }
+  if (a.id === b.id) { setPathHint("出発と到着が同じです", "err"); return; }
+  pathSel.from = a.id; pathSel.to = b.id;
+  pFrom.value = displayKey(a); pTo.value = displayKey(b);
+  go({ mode: "route", from: a.id, to: b.id });
+}
+function stepRoute(delta) {
+  if (!route) return;
+  route.idx = (route.idx + delta + route.all.length) % route.all.length;
+  drawRoute();
+}
+function setEndpoint(which, id) {
+  pathSel[which] = id;
+  (which === "from" ? pFrom : pTo).value = id ? displayKey(byId.get(id)) : "";
+  [pFrom, pTo].forEach(i => i.classList.remove("miss"));
+  switchTab("path");
+  if (pathSel.from && pathSel.to && pFrom.value && pTo.value) runRoute();
+  else setPathHint(which === "from" ? "到着ノードを指定してください（Shift+クリック可）" : "出発ノードを指定してください");
+}
+function randomRoute() {
+  const words = nodeList.filter(n => n.type === "word");
+  let best = null;
+  for (let i = 0; i < 60; i++) {
+    const a = words[Math.floor(Math.random() * words.length)], b = words[Math.floor(Math.random() * words.length)];
+    if (a === b) continue;
+    const ps = shortestPaths(a.id, b.id, viaAffixEl.checked, 1);
+    if (!ps.length) continue;
+    const len = ps[0].length;
+    if (!best || len > best.len) best = { a, b, len };
+    if (len >= 5 && Math.random() < 0.6) break;
+  }
+  if (!best) return;
+  pathSel.from = best.a.id; pathSel.to = best.b.id;
+  pFrom.value = displayKey(best.a); pTo.value = displayKey(best.b);
+  runRoute();
+}
+document.getElementById("pathForm").addEventListener("submit", e => { e.preventDefault(); runRoute(); [pFrom, pTo].forEach(i => i.blur()); });
+document.getElementById("randomBtn").addEventListener("click", randomRoute);
+document.getElementById("swapBtn").addEventListener("click", () => {
+  [pathSel.from, pathSel.to] = [pathSel.to, pathSel.from];
+  [pFrom.value, pTo.value] = [pTo.value, pFrom.value];
+  if (pFrom.value && pTo.value) runRoute();
+});
+viaAffixEl.addEventListener("change", () => { store.set("etymo-via-affix", viaAffixEl.checked ? "1" : "0"); if (route && current?.mode === "route") go({ mode: "route", from: current.from, to: current.to }, { push: false }); else setPathHint(viaAffixEl.checked ? PATH_HINT : "接辞を通らず、語根と祖語だけで繋がる道を探します"); });
+[pFrom, pTo].forEach(i => i.addEventListener("input", () => { i.classList.remove("miss"); if (pathHint.classList.contains("err")) setPathHint(PATH_HINT); }));
+
+/* =====================================================================
+   8. INFO CARD
+   ===================================================================== */
+const infoEl = document.getElementById("info");
+function chip(n, { extra = "", cls = "" } = {}) {
+  const m = n.type !== "word" && n.status === "review" ? ' <span class="rv">?</span>' : "";
+  const tip = n.type === "word" ? n.ja : n.gloss;
+  return `<button class="chip ${cls}" data-id="${esc(n.id)}" style="--c:${TYPE[n.type].color}"${tip ? ` title="${esc(tip)}"` : ""}>${esc(n.name)}${m}${extra}</button>`;
+}
+function chips(list, max = 24) {
+  if (!list.length) return `<div class="empty">—</div>`;
+  const rest = list.length - max;
+  return `<div class="chips">${list.slice(0, max).map(n => chip(n)).join("")}${rest > 0 ? `<span class="more-txt">ほか ${rest}</span>` : ""}</div>`;
+}
+function section(title, body) { return `<div class="sec"><h2>${title}</h2>${body}</div>`; }
+
+function brTag(b) {
+  const B = BRANCHES.get(b) || { short: "未設定", color: "#6b7385" };
+  return `<span class="brtag" style="--b:${B.color}">${esc(B.short)}</span>`;
+}
+// 祖語の派生パーツを系統ごとに並べる（D）
+function byBranch(parts) {
+  const groups = new Map();
+  parts.forEach(p => { const b = p.branch || "_none"; if (!groups.has(b)) groups.set(b, []); groups.get(b).push(p); });
+  return [...BRANCH_ORDER, "_none"].filter(b => groups.has(b))
+    .map(b => `<div class="route">${brTag(b)}<span class="arrow">→</span>${chips(groups.get(b))}</div>`).join("");
+}
+function catChips(n) {
+  const cs = (n.cats || []).map(id => CATS.get(id)).filter(Boolean);
+  return cs.length ? `<div class="catchips">${cs.map(c => `<button class="catchip" data-cat="${esc(c.id)}" style="--c:${c.color}">${esc(c.name)}</button>`).join("")}</div>` : "";
+}
+// 単語：和訳 ＋ パーツの意味による分解（＋必要なら直訳の補足）
+// 単語の中で実際に使われている綴り（例：perfect の fact / fect / fic → fect）
+const fold = x => x.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+// 各パーツの綴りを語の中に順に並べ、重なりが最小・カバーが最大になる組を選ぶ
+// （例：thesis = the + -sis。最長一致だと thes + -sis と s が重複する）
+function formsIn(w, parts) {
+  const word = fold(w.name.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+$/, "")), n = parts.length;
+  const opts = parts.map((p, i) => {
+    const o = [null];
+    const cands = [...new Set([...p.name.split("/").map(x => x.trim()), p.key, ...(p.forms || [])])].filter(Boolean);
+    for (const c of cands) {
+      const b = fold(c).replace(/\(.*?\)/g, "").replace(/-/g, "");
+      if (!b) continue;
+      for (let s = word.indexOf(b); s >= 0; s = word.indexOf(b, s + 1)) {
+        if (p.kind === "prefix" && i === 0 && s !== 0) continue;
+        if (p.kind === "suffix" && i === n - 1 && s + b.length !== word.length) continue;
+        o.push({ c, s, e: s + b.length });
+      }
+    }
+    return o;
+  });
+  let best = null;
+  const walk = (i, prev, miss, ov, cov, pick) => {
+    if (i === n) {
+      const k = [miss, ov, -cov];
+      const d = best && (k[0] - best.k[0] || k[1] - best.k[1] || k[2] - best.k[2]);
+      if (!best || d < 0) best = { k, pick: [...pick] };
+      return;
+    }
+    for (const o of opts[i]) {
+      if (!o) { pick.push(null); walk(i + 1, prev, miss + 1, ov, cov, pick); pick.pop(); continue; }
+      if (o.s < prev - 1) continue;
+      pick.push(o); walk(i + 1, Math.max(prev, o.e), miss, ov + Math.max(0, prev - o.s), cov + o.e - o.s, pick); pick.pop();
+    }
+  };
+  walk(0, 0, 0, 0, 0, []);
+  return parts.map((p, i) => {
+    const o = best.pick[i];
+    if (!o) return p.name;
+    const c = o.c;
+    return p.kind === "prefix" ? (c.endsWith("-") ? c : c + "-") : p.kind === "suffix" ? (c.startsWith("-") ? c : "-" + c) : c;
+  });
+}
+function wordHead(n) {
+  const parts = n.partRefs.map(r => byId.get(ID.part(r))).filter(Boolean);
+  const fs = formsIn(n, parts);
+  const dec = parts.map((p, i) => `<b style="--c:${TYPE[p.type].color}" title="${esc(p.name)}">${esc(fs[i])}</b>（${esc(p.gloss)}）`).join('<span class="plus">+</span>');
+  return `${n.ja ? `<div class="info-ja">${esc(n.ja)}</div>` : ""}
+    <div class="decomp">${dec}${n.literal ? `<span class="lit"><span>直訳</span>${esc(n.literal)}</span>` : ""}</div>`;
+}
+function renderCatCard(cid) {
+  const c = CATS.get(cid);
+  const pies = sortNodes([...c.pies]);
+  const roots = sortNodes([...c.roots].map(id => byId.get(id)));
+  const refs = [c.buck ? `Buck ${esc(c.buck)}` : "", c.longman ? `Longman ${esc(c.longman)}` : ""].filter(Boolean).join(" · ");
+  infoEl.innerHTML = `
+    <div class="info-head"><span class="badge" style="--c:${c.color}">${isOrigin(cid) ? "Origin · 由来のまとまり" : "Category · カテゴリ"}</span>
+      <button class="x" data-act="home" type="button" title="カテゴリ一覧に戻る">×</button></div>
+    <div class="info-name">${esc(c.name)}</div>
+    <div class="info-gloss">${isOrigin(cid) ? esc(c.desc) : refs}<br>語根・接辞 ${c.roots.size} · 単語 ${c.words.size}</div>
+    ${pies.length ? section(`祖語（${pies.length}）`, `<div class="chips">${pies.map(p => chip(p, { extra: ` <small>${esc(p.gloss)}</small>` })).join("")}</div>`) : ""}
+    ${section(`語根・接辞（${roots.length}）`, chips(roots, 40))}`;
+  infoEl.classList.add("show");
+}
+function srcSection(n) {
+  const items = n.src.map(s => {
+    const def = SOURCES[s.id] || { title: s.id };
+    const url = def.url && s.entry ? def.url.replace("{entry}", encodeURIComponent(s.entry)) : null;
+    const entry = s.entry ? (url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(s.entry)}</a>` : esc(s.entry)) : "";
+    return `<li>${esc(def.title)}${entry ? " · " + entry : ""}${s.note ? `<small>${esc(s.note)}</small>` : ""}${s.checked ? `<small>照合日 ${esc(s.checked)}</small>` : ""}</li>`;
+  }).join("");
+  const q = n.type === "pie" ? n.key.replace(/\(.*\)$/, "") : n.name.replace(/-/g, "");
+  const lookup = `<div class="lookup">調べる: <a href="https://www.etymonline.com/search?q=${encodeURIComponent(q)}" target="_blank" rel="noopener">Etymonline で検索</a></div>`;
+  return section("出典", (items ? `<ul class="src">${items}</ul>` : `<div class="empty">出典はまだ登録されていません</div>`) + lookup);
+}
+
+function renderRouteCard() {
+  const ids = route.all[route.idx];
+  const ns = ids.map(id => byId.get(id));
+  const mids = ns.slice(1, -1);
+  const cnt = t => mids.filter(n => (t === "part" ? n.type === "root" || n.type === "affix" : n.type === t)).length;
+  const via = [["単語", cnt("word")], ["語根", cnt("root")], ["接辞", cnt("affix")], ["PIE", cnt("pie")]].filter(([, c]) => c).map(([l, c]) => `${l} ${c}`).join(" · ");
+  const chain = ns.map((n, i) => (i ? `<div class="link"></div>` : "") +
+    `<div class="step">${chip(n, { extra: n.type === "word" ? (n.ja ? ` <small>${esc(n.ja)}</small>` : "") : ` <small>${esc(n.gloss)}</small>`, cls: i === 0 || i === ns.length - 1 ? "end" : "" })}</div>`).join("");
+  const nav = route.all.length > 1 ? `<div class="nav"><button class="btn" data-act="prev" type="button">‹</button>
+      <span>同じ長さの道 ${route.idx + 1} / ${route.all.length}${route.all.length >= ROUTE_LIMIT ? "+" : ""}</span>
+      <button class="btn" data-act="next" type="button">›</button></div>` : "";
+  infoEl.innerHTML = `
+    <div class="info-head"><span class="badge" style="--c:${ROUTE}">Route · 道</span>
+      <button class="x" data-act="back" type="button" title="戻る">×</button></div>
+    <div class="info-name">${esc(ns[0].name)}<span class="to-arrow">→</span>${esc(ns[ns.length - 1].name)}</div>
+    <div class="info-gloss">${ids.length - 1} ステップ${via ? ` · 経由: ${via}` : ""} · ノードをクリックでその周囲へ</div>
+    ${route.fallback ? `<div class="route-note">「接辞も経由」はオフですが、この2つは接辞を通らないと繋がらないため、通る接辞ができるだけ少ない道を表示しています。</div>` : ""}
+    <div class="chain">${chain}</div>${nav}`;
+  infoEl.classList.add("show");
+}
+
+/* =====================================================================
+   8b. GRAPH ANALYSIS（同語源の家族・学習順・同じ構成の語）
+   ===================================================================== */
+const partsOfWord = w => w.partRefs.map(r => byId.get(ID.part(r))).filter(Boolean);
+// 1. 同語源の家族：単語 → 語根 → 祖語 → 別の語根 → 単語
+//    接頭辞・接尾辞を経由すると、ほぼ無関係な語まで大量に入る（例：forehead の fore → *per-(1) → pre- / pro-）ため、
+//    たどるのは語根どうしに限る。語根を持たない語（union = uni- + -ion など）だけは接辞から出発する。
+//    同じ語根を共有する語は「共有パーツで繋がる単語」に出るので除く。
+function cognates(w) {
+  const all = partsOfWord(w);
+  const roots = all.filter(p => p.type === "root");
+  const start = roots.length ? roots : all;
+  const own = new Set(all.map(p => p.id));
+  const shared = new Set(start.flatMap(p => [...adj.get(p.id)]));
+  const groups = new Map(); // branch -> { parts, words, pies }
+  for (const p of start) for (const pie of neighborsOf(p.id, "pie")) for (const q of neighborsOf(pie.id, "root")) {
+    if (own.has(q.id)) continue;
+    const ws = neighborsOf(q.id, "word").filter(x => x.id !== w.id && !shared.has(x.id));
+    if (!ws.length) continue;
+    const b = q.branch || "_none";
+    if (!groups.has(b)) groups.set(b, { parts: new Map(), words: new Map(), pies: new Set() });
+    const g = groups.get(b); g.parts.set(q.id, q); g.pies.add(pie.name);
+    ws.forEach(x => g.words.set(x.id, x));
+  }
+  return [...BRANCH_ORDER, "_none"].filter(b => groups.has(b)).map(b => ({ branch: b, ...groups.get(b) }));
+}
+function cognateSection(w) {
+  const gs = cognates(w);
+  const total = new Set(gs.flatMap(g => [...g.words.keys()])).size;
+  if (!total) return section("同語源の家族", `<div class="empty">ほかの経路で同じ祖語につながる単語はありません</div>`);
+  const rows = gs.map(g => {
+    const via = [...g.parts.values()].map(q => q.name).join(", ");
+    return `<div class="route">${g.branch === "_none" ? brTag("") : brTag(g.branch)}<span class="arrow">→</span><div>${chips(sortNodes([...g.words.values()]), 14)}<div class="via">経由: ${esc(via)}</div></div></div>`;
+  }).join("");
+  return section(`同語源の家族（${total}）<small class="sec-note">同じ祖語から別の語根を通って生まれた語</small>`, rows);
+}
+
+// 3. 同じ構成の語：構成パーツの集合が同じ単語（二重語の候補）
+let twinIndex = null;
+function editDist(a, b) {
+  const m = a.length, n = b.length, d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 1; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[m][n];
+}
+function buildTwins() {
+  if (twinIndex) return twinIndex;
+  const map = new Map();
+  nodeList.filter(n => n.type === "word").forEach(w => {
+    const key = [...new Set(w.partRefs)].sort().join("|");
+    if (!key) return;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(w);
+  });
+  const groups = [...map.entries()].filter(([, ws]) => ws.length > 1).map(([key, ws]) => {
+    let diff = 0;
+    for (let i = 0; i < ws.length; i++) for (let j = i + 1; j < ws.length; j++) {
+      const a = fold(ws[i].name), b = fold(ws[j].name);
+      diff = Math.max(diff, editDist(a, b) / Math.max(a.length, b.length));
+    }
+    const order = [...new Set(ws[0].partRefs)];
+    return { key, parts: order.map(r => byId.get(ID.part(r))).filter(Boolean), words: sortNodes(ws), diff };
+  }).sort((a, b) => b.diff - a.diff || b.parts.length - a.parts.length);
+  const byWord = new Map();
+  groups.forEach(g => g.words.forEach(w => byWord.set(w.id, g)));
+  return (twinIndex = { groups, byWord });
+}
+function twinSection(w) {
+  const g = buildTwins().byWord.get(w.id);
+  if (!g) return "";
+  return section(`同じ構成の語<small class="sec-note">パーツの組み合わせが同じ（二重語の候補）</small>`, chips(g.words.filter(x => x.id !== w.id)));
+}
+
+// 2. 学習順：少ない数のパーツで多くの単語を説明できる順（最大被覆の貪欲法）
+const learnCache = new Map();
+function learnOrder(mode) { // mode: "root" | "all"
+  if (learnCache.has(mode)) return learnCache.get(mode);
+  const use = p => mode === "all" ? true : p.type === "root";
+  const words = nodeList.filter(n => n.type === "word").map(w => ({ w, rest: new Set(partsOfWord(w).filter(use).map(p => p.id)) })).filter(x => x.rest.size);
+  const byUnit = new Map();
+  words.forEach(x => x.rest.forEach(u => { if (!byUnit.has(u)) byUnit.set(u, []); byUnit.get(u).push(x); }));
+  const total = words.length, out = [];
+  let covered = 0;
+  const left = new Set(byUnit.keys());
+  while (left.size && covered < total) {
+    let best = null, bestScore = -1, bestNew = 0;
+    for (const u of left) {
+      let sc = 0, nw = 0;
+      for (const x of byUnit.get(u)) if (x.rest.size) { sc += 1 / x.rest.size; if (x.rest.size === 1) nw++; }
+      // まず「すぐ説明できる単語の数」、同数なら「あと少しで説明できる単語」への寄与で選ぶ
+      if (nw > bestNew || (nw === bestNew && sc > bestScore)) { best = u; bestScore = sc; bestNew = nw; }
+    }
+    if (bestScore <= 0) break;
+    left.delete(best);
+    let gained = 0;
+    for (const x of byUnit.get(best)) if (x.rest.delete(best) && !x.rest.size) gained++;
+    covered += gained;
+    out.push({ node: byId.get(best), gained, covered, pct: covered / total * 100 });
+  }
+  const res = { total, list: out };
+  learnCache.set(mode, res);
+  return res;
+}
+
+function renderInfo() {
+  document.body.classList.toggle("has-info", !!(route || (current && (current.mode === "focus" || current.mode === "cat"))));
+  if (route) { renderRouteCard(); return; }
+  if (current && current.mode === "cat") { renderCatCard(current.id); return; }
+  if (!current || current.mode !== "focus") { infoEl.classList.remove("show"); return; }
+  const n = byId.get(current.id);
+  const t = TYPE[n.type];
+  const kindJa = n.kind === "prefix" ? "接頭辞" : n.kind === "suffix" ? "接尾辞" : t.ja;
+  let gloss = "";
+  if (n.type === "word") gloss = "";
+  else if (n.type === "pie") gloss = `<em>${esc(n.gloss)}</em>${n.note ? " · " + esc(n.note) : ""}${n.alt ? `<br>別表記（近年の表記）: <span style="font-family:var(--mono)">${esc(n.alt)}</span>` : ""}`;
+  else gloss = `<em>${esc(n.gloss)}</em>${n.origin ? " · " + esc(n.origin) : ""}${n.branch ? " · " + esc(BRANCHES.get(n.branch).short) + "系" : ""}${n.note ? "<br>" + esc(n.note) : ""}${n.forms.length ? `<br>異形: ${esc(n.forms.join(", "))}` : ""}`;
+
+  let body = "";
+  if (n.type === "word") {
+    const parts = n.partRefs.map(r => byId.get(ID.part(r))).filter(Boolean);
+    const ets = Object.keys(ETYM).filter(k => parts.some(p => p.etym === k));
+    if (ets.length) body += `<div class="etym-note" style="--c:${ORIGIN[ETYM[ets[0]].cat].color}">${ets.map(k => `${parts.length > 1 && parts.some(p => p.etym !== k) ? "一部の要素は" : ""}${k === "unknown" ? "語源不明" : "非印欧語に由来"}：${esc(parts.filter(p => p.etym === k).map(p => p.name).join(", "))}`).join("<br>")}</div>`;
+    body += section("構成パーツ", chips(parts));
+    const routes = parts.map(p => {
+      const others = neighborsOf(p.id, "word").filter(w => w.id !== n.id);
+      return others.length ? `<div class="route">${chip(p)}<span class="arrow">→</span>${chips(others, 10)}</div>` : "";
+    }).join("");
+    body += section("共有パーツで繋がる単語", routes || `<div class="empty">共有パーツを持つ単語はありません</div>`);
+    body += section("祖語ルーツ", chips(sortNodes([...new Set(parts.flatMap(p => neighborsOf(p.id, "pie")))])));
+    body += twinSection(n);
+    body += cognateSection(n);
+  } else if (n.type === "pie") {
+    const parts = neighborsOf(n.id).filter(x => x.type !== "pie");
+    const nb = n.branches.length;
+    const tri = ["latin", "greek", "germanic"].every(b => n.branches.includes(b));
+    body += section(`派生パーツ（系統別${nb >= 2 ? "・" + nb + "系統" : ""}${tri ? "・ラテン/ギリシア/ゲルマンの3系統そろう" : ""}）`, byBranch(parts) || `<div class="empty">—</div>`);
+    const words = sortNodes([...new Set(parts.flatMap(p => neighborsOf(p.id, "word")))]);
+    body += section(`到達する単語（${words.length}）`, chips(words, 30));
+    body += srcSection(n);
+  } else {
+    const pies = neighborsOf(n.id, "pie");
+    body += section("祖語", pies.length ? chips(pies) : `<div class="empty">${n.etym === "unknown" ? "語源不明（英語より前の形が分からない）" : n.etym === "nonie" ? "非印欧語に由来（印欧祖語の系統に属さない）" : "祖語未詳（印欧祖語まで遡れない）"}</div>`);
+    const words = neighborsOf(n.id, "word");
+    body += section(`この${kindJa}を含む単語（${words.length}）`, chips(words, 30));
+    body += srcSection(n);
+  }
+  const vb = (n.type !== "word" && n.status === "review" ? `<span class="vbadge review">? ${STATUS.review.ja}</span>` : "") +
+    (n.etym ? `<span class="vbadge etym" style="--c:${ORIGIN[ETYM[n.etym].cat].color}">${ETYM[n.etym].ja}</span>` : "");
+  infoEl.innerHTML = `
+    <div class="info-head"><span class="badge" style="--c:${t.color}">${t.name} · ${kindJa}</span>${vb}
+      <button class="x" data-act="home" type="button" title="カテゴリ一覧に戻る">×</button></div>
+    <div class="info-name">${esc(n.name)}${n.type === "word" && CAN_SPEAK ? `<button class="speak" data-act="speak" type="button" title="発音を聞く（ブラウザの音声合成）" aria-label="${esc(n.name)} の発音を聞く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>` : ""}${favBtn(n)}</div>
+    ${n.type === "word" ? wordHead(n) : `<div class="info-gloss">${gloss}</div>`}
+    ${catChips(n)}
+    ${body}
+    <div class="actions">
+      <button class="btn" data-act="from" type="button">ここから道探索</button>
+      <button class="btn" data-act="to" type="button">ここまでの道</button>
+    </div>`;
+  infoEl.classList.add("show");
+}
+
+// 発音：ブラウザの音声合成（Web Speech API）で英単語を読み上げる。音声データは持たない
+const CAN_SPEAK = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+function speakWord(n, btn) {
+  if (!CAN_SPEAK) return;
+  const text = n.key.replace(/\(\d+\)$/, "");
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-US"; u.rate = 0.9;
+  const voices = speechSynthesis.getVoices();
+  const v = voices.find(x => /^en[-_]US/i.test(x.lang) && x.localService) || voices.find(x => /^en[-_]US/i.test(x.lang)) || voices.find(x => /^en/i.test(x.lang));
+  if (v) u.voice = v;
+  btn?.classList.add("on");
+  u.onend = u.onerror = () => btn?.classList.remove("on");
+  speechSynthesis.speak(u);
+}
+if (CAN_SPEAK) speechSynthesis.getVoices();
+infoEl.addEventListener("click", e => {
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  if (act === "speak") return speakWord(byId.get(current.id), e.target.closest(".speak"));
+  if (act === "fav") return toggleFav(current.id);
+  if (act === "back") return back();
+  if (act === "home") return go({ mode: "home" });
+  if (act === "prev") return stepRoute(-1);
+  if (act === "next") return stepRoute(1);
+  if (act === "from" || act === "to") {
+    const id = current.id;
+    if (act === "from" && pathSel.to === id) { pathSel.to = null; pTo.value = ""; }
+    if (act === "to" && pathSel.from === id) { pathSel.from = null; pFrom.value = ""; }
+    return setEndpoint(act, id);
+  }
+  const cc = e.target.closest(".catchip");
+  if (cc) return go({ mode: "cat", id: cc.dataset.cat });
+  const b = e.target.closest(".chip");
+  if (b) go({ mode: "focus", id: b.dataset.id });
+});
+
+/* =====================================================================
+   9. EVENTS
+   ===================================================================== */
+network.on("hoverNode", p => { hovered = p.node; render(); container.style.cursor = "pointer"; });
+network.on("blurNode", () => { hovered = null; render(); container.style.cursor = ""; });
+network.on("click", p => {
+  const id = p.nodes[0];
+  if (!id) return;
+  if (isMore(id)) { expanded.add(id.slice(5)); showFocus(current.id, { resetExpand: false }); return; }
+  if (isCat(id)) { const cid = id.slice(4); if (!(current && current.mode === "cat" && current.id === cid)) go({ mode: "cat", id: cid }); return; }
+  if (p.event?.srcEvent?.shiftKey) {
+    if (!pathSel.from || pathSel.to) { pathSel.to = null; pTo.value = ""; setEndpoint("from", id); }
+    else setEndpoint("to", id);
+    return;
+  }
+  if (current && current.mode === "focus" && current.id === id) return;
+  go({ mode: "focus", id });
+});
+
+function syncLabelSeg() {
+  document.querySelectorAll("#labelSeg button").forEach(b => b.classList.toggle("on", b.dataset.l === labelMode));
+}
+document.getElementById("labelSeg").addEventListener("click", e => {
+  const b = e.target.closest("button[data-l]");
+  if (!b || b.dataset.l === labelMode) return;
+  labelMode = b.dataset.l; store.set("etymo-label", labelMode); syncLabelSeg();
+  const up = [];
+  visible.forEach((_, id) => { if (!isMore(id) && !isCat(id)) up.push({ id, label: labelOf(byId.get(id)) }); });
+  if (up.length) nodesDS.update(up);
+  lastState.clear(); render();
+});
+syncLabelSeg();
+function syncDepthSeg() {
+  const focusMode = current && current.mode === "focus";
+  document.querySelectorAll("#depthSeg button").forEach(b => { b.classList.toggle("on", +b.dataset.d === depth); b.disabled = !focusMode; });
+}
+document.querySelectorAll("#depthSeg button").forEach(b => b.addEventListener("click", () => {
+  depth = +b.dataset.d; syncDepthSeg();
+  if (current && current.mode === "focus") showFocus(current.id, { resetExpand: false });
+}));
+document.getElementById("backBtn").addEventListener("click", back);
+document.getElementById("homeBtn").addEventListener("click", () => { if (!current || current.mode !== "home") go({ mode: "home" }); });
+
+/* =====================================================================
+   10. SEARCH & TABS
+   ===================================================================== */
+const form = document.getElementById("searchForm");
+const q = document.getElementById("q");
+const hint = document.getElementById("hint");
+const DEFAULT_HINT = hint.textContent;
+
+function findNode(raw) {
+  const s = raw.trim().toLowerCase();
+  if (!s) return null;
+  const norm = x => x.toLowerCase();
+  const bare = x => norm(x).normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  const bs = bare(s);
+  const words = nodeList.filter(n => n.type === "word");
+  // 日本語の意味で検索（和訳・語釈の完全一致 → 部分一致。祖語・語根を優先）
+  if (/[^\x00-\x7F]/.test(s) && !/^[*a-z0-9ʰʷǵḱ₁₂₃()\-\s]+$/.test(s)) {
+    const g = n => (n.type === "word" ? n.ja : n.gloss) || "";
+    const order = arr => arr.sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type]);
+    const q = raw.trim();
+    return order(nodeList.filter(n => g(n) === q || g(n).split(/[・、，,]/).includes(q)))[0]
+        || order(nodeList.filter(n => g(n).includes(q)))[0] || null;
+  }
+  return nodeList.find(n => norm(displayKey(n)) === s && displayKey(n) !== n.name)
+      || words.find(n => norm(n.name) === s)
+      || nodeList.find(n => norm(n.key) === s || norm(n.name) === s)
+      || nodeList.find(n => n.alt && norm(n.alt) === s)
+      || nodeList.find(n => (n.forms || []).some(f => norm(f) === s))
+      || (bs && nodeList.find(n => n.type !== "word" && bare(n.name) === bs))
+      || (bs && nodeList.find(n => n.alt && bare(n.alt) === bs))
+      || (bs && nodeList.find(n => (n.forms || []).some(f => bare(f) === bs)))
+      || words.find(n => norm(n.name).startsWith(s))
+      || words.find(n => norm(n.name).includes(s))
+      || (bs && nodeList.find(n => bare(n.name).startsWith(bs)));
+}
+function setHint(text, err = false) { hint.textContent = text; hint.classList.toggle("err", err); }
+// 未収録語の候補：綴りの近い単語（編集距離が小さい順。前方一致・部分一致も拾う）
+function suggestWords(raw) {
+  const s = raw.toLowerCase().replace(/[^a-z]/g, "");
+  if (!s) return [];
+  const lim = s.length <= 4 ? 1 : s.length <= 7 ? 2 : 3;
+  return nodeList.filter(n => n.type === "word").map(n => {
+    const w = n.name.toLowerCase().replace(/[^a-z]/g, "");
+    const d = w.includes(s) || s.includes(w) && w.length >= 3 ? Math.min(1, editDist(s, w)) : editDist(s, w);
+    return { n, d: d + Math.abs(w.length - s.length) * 0.01 };
+  }).filter(x => x.d <= lim + 0.5).sort((a, b) => a.d - b.d || a.n.name.localeCompare(b.n.name)).slice(0, 6).map(x => x.n);
+}
+hint.addEventListener("click", e => {
+  const b = e.target.closest("button.sug"); if (!b) return;
+  const n = byId.get(b.dataset.id); q.value = n.name; setHint(`${TYPE[n.type].name}: ${n.name} を表示`);
+  go({ mode: "focus", id: n.id });
+});
+form.addEventListener("submit", e => {
+  e.preventDefault();
+  const hit = findNode(q.value);
+  if (!hit) {
+    form.classList.remove("miss"); void form.offsetWidth; form.classList.add("miss");
+    const raw = q.value.trim();
+    const sug = /[^\x00-\x7F]/.test(raw) ? [] : suggestWords(raw);
+    hint.innerHTML = `「${esc(raw)}」はまだ収録していません。` +
+      (sug.length ? `<br>近い語：${sug.map(w => `<button type="button" class="sug" data-id="${esc(w.id)}">${esc(w.name)}</button>`).join("")}` : "") +
+      (/^[a-z][a-z\- ]*$/i.test(raw) ? `<br><a href="https://www.etymonline.com/word/${encodeURIComponent(raw.toLowerCase())}" target="_blank" rel="noopener">Etymonline で ${esc(raw)} を見る</a>` : "");
+    hint.classList.add("err");
+    return;
+  }
+  form.classList.remove("miss");
+  setHint(`${TYPE[hit.type].name}: ${hit.name} を表示`);
+  go({ mode: "focus", id: hit.id });
+  q.blur();
+});
+q.addEventListener("input", () => { form.classList.remove("miss"); if (hint.classList.contains("err")) setHint(DEFAULT_HINT); });
+
+function switchTab(name) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+  document.getElementById("pane-search").hidden = name !== "search";
+  document.getElementById("pane-path").hidden = name !== "path";
+}
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  switchTab(t.dataset.tab);
+  (t.dataset.tab === "path" ? (pFrom.value ? pTo : pFrom) : q).focus();
+}));
+
+document.addEventListener("keydown", e => {
+  const typing = e.target.matches("input");
+  if (e.key === "/" && !typing) { e.preventDefault(); switchTab("search"); q.focus(); q.select(); }
+  if (e.key === "Escape") { if (typing) e.target.blur(); else if (!ixPanel.hidden && window.innerWidth <= 720) openIndex(false); else if (!fvPanel.hidden && window.innerWidth <= 720) openFav(false); else back(); }
+  if (route && !typing && (e.key === "ArrowRight" || e.key === "ArrowLeft")) stepRoute(e.key === "ArrowRight" ? 1 : -1);
+});
+
+/* =====================================================================
+   10b. INDEX PANEL（一覧：祖語 / 語根・接辞 / 単語）
+   ===================================================================== */
+const ix = { tab: "pie", filter: "", opt: "all" };
+const ixPanel = document.getElementById("indexPanel");
+function openIndex(open) {
+  if (open && !fvPanel.hidden) openFav(false);
+  ixPanel.hidden = !open;
+  document.body.classList.toggle("index-open", open);
+  if (open) renderIndex();
+}
+document.getElementById("ixOpen").addEventListener("click", () => openIndex(true));
+document.getElementById("ixClose").addEventListener("click", () => openIndex(false));
+document.getElementById("ixTabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-ix]"); if (!b) return;
+  ix.tab = b.dataset.ix; ix.opt = b.dataset.ix === "learn" ? "root" : b.dataset.ix === "twin" ? "multi" : "all";
+  document.querySelectorAll("#ixTabs button").forEach(x => x.classList.toggle("on", x === b));
+  renderIndex();
+});
+document.getElementById("ixFilter").addEventListener("input", e => { ix.filter = e.target.value.trim().toLowerCase(); renderIndex(); });
+document.getElementById("ixOpts").addEventListener("click", e => { const b = e.target.closest("button[data-opt]"); if (b) { ix.opt = b.dataset.opt; renderIndex(); } });
+document.getElementById("ixList").addEventListener("click", e => {
+  const g = e.target.closest("[data-cat]"); if (g) return go({ mode: "cat", id: g.dataset.cat });
+  const b = e.target.closest(".ix-item"); if (!b) return;
+  go({ mode: "focus", id: b.dataset.id });
+  if (window.innerWidth <= 720) openIndex(false);
+});
+const ixMatch = n => matchNode(n, ix.filter);
+const matchNode = (n, f) => {
+  if (!f) return true;
+  // 単語は構成パーツの意味でも引ける（例：「見る」→ inspect, vision …）
+  const partGloss = n.type === "word" ? n.partRefs.map(r => byId.get(ID.part(r))?.gloss || "") : [];
+  return [n.name, n.key, n.alt || "", n.gloss || "", n.ja || "", n.literal || "", ...partGloss, ...(n.forms || [])].some(x => x.toLowerCase().includes(f));
+};
+const dots = bs => bs.map(b => `<span class="bd" style="--b:${BRANCHES.get(b).color}" title="${esc(BRANCHES.get(b).name)}"></span>`).join("");
+function ixItem(n, sub, end = "") {
+  const ok = n.status === "review" ? '<span class="rv">?</span>' : "";
+  const fv = isFav(n.id) ? '<span class="fv-star" title="登録済み">★</span>' : "";
+  return `<button class="ix-item" data-id="${esc(n.id)}" style="--c:${TYPE[n.type].color}"><i></i>${esc(n.name)}${sub ? `<small>${esc(sub)}</small>` : ""}<span class="end">${end}${ok}${fv}</span></button>`;
+}
+function renderIndex() {
+  if (ixPanel.hidden) return;
+  const opts = document.getElementById("ixOpts"), list = document.getElementById("ixList"), cnt = document.getElementById("ixCount");
+  let html = "", total = 0;
+  const opt = (id, label, extra = "") => `<button type="button" data-opt="${id}" class="${ix.opt === id ? "on" : ""}">${extra}${label}</button>`;
+  if (ix.tab === "pie") {
+    opts.innerHTML = opt("all", "すべて") + opt("tri", "3系統そろう", dots(["latin", "greek", "germanic"]));
+    [...CATS.values()].filter(c => !isOrigin(c.id)).forEach(c => {
+      const ps = sortNodes(c.pies.filter(p => ixMatch(p) && (ix.opt !== "tri" || ["latin", "greek", "germanic"].every(b => p.branches.includes(b)))));
+      if (!ps.length) return;
+      total += ps.length;
+      html += `<div class="ix-group" style="--c:${c.color}" data-cat="${esc(c.id)}" role="button" title="カテゴリを開く">${esc(c.name)} · ${ps.length}</div>` +
+        ps.map(p => ixItem(p, p.gloss, dots(p.branches))).join("");
+    });
+  } else if (ix.tab === "part") {
+    opts.innerHTML = opt("all", "すべて") + BRANCH_ORDER.filter(b => BRANCHES.has(b)).map(b => opt(b, BRANCHES.get(b).short, dots([b]))).join("") + opt("unknown", "語源不明");
+    const ps = sortNodes(nodeList.filter(n => (n.type === "root" || n.type === "affix") && ixMatch(n) && (ix.opt === "all" || (ix.opt === "unknown" ? n.etym === "unknown" : n.branch === ix.opt))));
+    total = ps.length;
+    const groups = [["root", "語根"], ["affix", "接辞"]];
+    groups.forEach(([t, label]) => {
+      const g = ps.filter(n => n.type === t).sort((a, b) => a.name.replace(/^-/, "").localeCompare(b.name.replace(/^-/, "")));
+      if (!g.length) return;
+      html += `<div class="ix-group" style="--c:${TYPE[t].color}">${label} · ${g.length}</div>` + g.map(n => ixItem(n, n.gloss, n.branch ? dots([n.branch]) : "")).join("");
+    });
+  } else if (ix.tab === "learn") {
+    opts.innerHTML = opt("root", "語根のみ") + opt("all", "語根＋接辞");
+    const L = learnOrder(ix.opt);
+    const at = k => L.list[Math.min(k, L.list.length) - 1]?.pct.toFixed(0) ?? "0";
+    html += `<div class="ix-note">上から順に覚えたとき、単語を構成する${ix.opt === "root" ? "語根（接辞は数えない）" : "語根と接辞"}がすべてそろった単語を「説明できる」と数えます。次の${ix.opt === "root" ? "語根" : "パーツ"}は、新たに説明できる単語が最も多いものを選んでいます（対象 ${L.total} 語）。<br>上位10で <b>${at(10)}%</b> · 50で <b>${at(50)}%</b> · 100で <b>${at(100)}%</b> · 200で <b>${at(200)}%</b></div>`;
+    const rows = L.list.map((x, i) => ({ ...x, rank: i + 1 })).filter(x => ixMatch(x.node));
+    total = rows.length;
+    let mile = 0;
+    rows.forEach(x => {
+      const m = [10, 50, 100, 200, 500].find(v => x.rank <= v) || 9999;
+      if (m !== mile) { mile = m; html += `<div class="ix-group">${m === 9999 ? "501位〜" : `〜${m}位`}</div>`; }
+      html += `<button class="ix-item" data-id="${esc(x.node.id)}" style="--c:${TYPE[x.node.type].color}"><span class="rk">${x.rank}</span><i></i><span title="${esc(x.node.name)}">${esc(x.node.name.split(" / ")[0])}</span><small>${esc(x.node.gloss || "")}</small><span class="end"><span class="gain">+${x.gained}</span><span class="pct">${x.pct.toFixed(1)}%</span></span></button>`;
+    });
+  } else if (ix.tab === "twin") {
+    opts.innerHTML = opt("multi", "2パーツ以上") + opt("all", "すべて");
+    const T = buildTwins();
+    html += `<div class="ix-note">構成パーツの組み合わせがまったく同じ単語のまとまりです。綴りの違いが大きい順に並べています。別の経路で英語に入った二重語（例：attitude / aptitude）の候補になります。</div>`;
+    T.groups.filter(g => (ix.opt === "all" || g.parts.length >= 2) && (!ix.filter || g.words.some(ixMatch))).forEach(g => {
+      total++;
+      html += `<div class="ix-group">${esc(g.parts.map(p => p.name.split(" / ")[0]).join(" + "))}</div>` + g.words.map(w => ixItem(w, w.ja)).join("");
+    });
+  } else {
+    opts.innerHTML = "";
+    const ws = nodeList.filter(n => n.type === "word" && ixMatch(n)).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    total = ws.length;
+    let letter = "";
+    ws.forEach(w => {
+      const L = w.name[0].toUpperCase();
+      if (L !== letter) { letter = L; html += `<div class="ix-group">${L}</div>`; }
+      html += ixItem(w, w.ja || w.partRefs.map(r => byId.get(ID.part(r))?.name).filter(Boolean).join(" + "));
+    });
+  }
+  cnt.textContent = ix.tab === "twin" ? `${total} 組` : `${total} 件`;
+  list.innerHTML = html || `<div class="ix-empty">該当なし</div>`;
+}
+
+/* =====================================================================
+   10c. FAVORITES（登録：祖語・語根・接辞・単語）
+   ===================================================================== */
+const FAV_KEY = "etymo-favs-v1";
+const FAV_STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.8L12 16.9l-5.2 2.75 1-5.8-4.2-4.1 5.8-.85z"/></svg>';
+const favs = (() => {   // id → 登録時刻（ms）
+  try {
+    const a = JSON.parse(store.get(FAV_KEY) || "[]");
+    return new Map(Array.isArray(a) ? a.filter(x => x && typeof x.id === "string").map(x => [x.id, Number(x.t) || 0]) : []);
+  } catch { return new Map(); }
+})();
+let favClock = 0;
+const isFav = id => favs.has(id);
+const saveFavs = () => store.set(FAV_KEY, JSON.stringify([...favs].map(([id, t]) => ({ id, t }))));
+const favNodes = () => [...favs.keys()].map(id => byId.get(id)).filter(Boolean);   // データから消えた登録は保持したまま表示しない
+function favBtn(n) {
+  const on = isFav(n.id);
+  return `<button class="fav${on ? " on" : ""}" data-act="fav" type="button" aria-pressed="${on}" title="${on ? "登録を解除" : "登録する（凡例の「登録」から一覧できます）"}" aria-label="${esc(n.name)} を${on ? "登録解除" : "登録"}">${FAV_STAR}</button>`;
+}
+function toggleFav(id, { undo = true } = {}) {
+  if (favs.has(id)) { fv.removed = undo ? { id, t: favs.get(id) } : null; favs.delete(id); }
+  else { favClock = Math.max(Date.now(), favClock + 1); favs.set(id, favClock); if (fv.removed?.id === id) fv.removed = null; }
+  saveFavs(); syncFav();
+}
+function syncFav() {
+  const c = favNodes().length;
+  document.getElementById("favCount").textContent = c ? String(c) : "";
+  const b = infoEl.querySelector(".fav");
+  if (b && current?.mode === "focus") {
+    const on = isFav(current.id), n = byId.get(current.id);
+    b.classList.toggle("on", on); b.setAttribute("aria-pressed", on);
+    b.title = on ? "登録を解除" : "登録する（凡例の「登録」から一覧できます）";
+    b.setAttribute("aria-label", `${n.name} を${on ? "登録解除" : "登録"}`);
+  }
+  renderFav(); renderIndex();
+  lastState.clear(); render(); network.redraw();
+}
+
+const FV_TABS = [["all", "すべて"], ["pie", "祖語"], ["root", "語根"], ["affix", "接辞"], ["word", "単語"]];
+const FV_SORTS = [["new", "新しい順"], ["old", "古い順"], ["az", "A→Z"], ["za", "Z→A"], ["links", "つながり順"]];
+const fv = { tab: "all", filter: "", sort: FV_SORTS.some(([k]) => k === store.get("etymo-fav-sort")) ? store.get("etymo-fav-sort") : "new", removed: null };
+const fvPanel = document.getElementById("favPanel");
+function openFav(open) {
+  if (open && !ixPanel.hidden) openIndex(false);
+  fvPanel.hidden = !open;
+  document.body.classList.toggle("fav-open", open);
+  if (open) { fv.removed = null; renderFav(); }
+}
+const alphaKey = n => n.name.replace(/^[*\-]+/, "").toLowerCase();
+const fmtDate = t => { if (!t) return ""; const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()}`; };
+function sortFav(list) {
+  const cmpA = (a, b) => alphaKey(a).localeCompare(alphaKey(b));
+  const f = {
+    new: (a, b) => favs.get(b.id) - favs.get(a.id),
+    old: (a, b) => favs.get(a.id) - favs.get(b.id),
+    az: cmpA,
+    za: (a, b) => cmpA(b, a),
+    links: (a, b) => adj.get(b.id).size - adj.get(a.id).size || cmpA(a, b)
+  }[fv.sort];
+  return list.sort(f);
+}
+function renderFav() {
+  if (fvPanel.hidden) return;
+  const all = favNodes();
+  const cnt = t => t === "all" ? all.length : all.filter(n => n.type === t).length;
+  document.getElementById("fvTabs").innerHTML = FV_TABS.map(([k, l]) =>
+    `<button type="button" data-fv="${k}" class="${fv.tab === k ? "on" : ""}">${l}${cnt(k) ? ` ${cnt(k)}` : ""}</button>`).join("");
+  document.getElementById("fvSort").innerHTML = `<span>並べ替え</span>` + FV_SORTS.map(([k, l]) =>
+    `<button type="button" data-sort="${k}" class="${fv.sort === k ? "on" : ""}">${l}</button>`).join("");
+  const u = fv.removed && byId.get(fv.removed.id);
+  document.getElementById("fvUndo").innerHTML = u ? `<div class="fv-undo">「<b>${esc(u.name)}</b>」の登録を解除しました<button type="button" data-undo>元に戻す</button></div>` : "";
+  const shown = all.filter(n => (fv.tab === "all" || n.type === fv.tab) && matchNode(n, fv.filter));
+  const meta = n => fv.sort === "links" ? `${adj.get(n.id).size}本` : fmtDate(favs.get(n.id));
+  const row = n => `<div class="fav-row">${ixItem(n, n.type === "word" ? n.ja : n.gloss, `<span class="fv-meta" title="${fv.sort === "links" ? "直接つながるノードの数" : "登録した日"}">${meta(n)}</span>`).replace('<span class="fv-star" title="登録済み">★</span>', "")}` +
+    `<button class="fav-x" type="button" data-unfav="${esc(n.id)}" title="登録を解除" aria-label="${esc(n.name)} の登録を解除">${FAV_STAR}</button></div>`;
+  let html = "";
+  if (fv.tab === "all") {
+    [["pie", "祖語"], ["root", "語根"], ["affix", "接辞"], ["word", "単語"]].forEach(([t, l]) => {
+      const g = sortFav(shown.filter(n => n.type === t));
+      if (g.length) html += `<div class="ix-group" style="--c:${TYPE[t].color}">${l} · ${g.length}</div>` + g.map(row).join("");
+    });
+  } else html = sortFav(shown).map(row).join("");
+  document.getElementById("fvCount").textContent = all.length ? `${shown.length} 件${shown.length !== all.length ? ` / 登録 ${all.length} 件` : ""}` : "";
+  document.getElementById("fvList").innerHTML = html || (all.length
+    ? `<div class="ix-empty">該当なし</div>`
+    : `<div class="ix-empty">まだ登録がありません。<br>ノードを開き、名前の横の <b>☆</b> を押すとここに追加されます。</div>`);
+}
+document.getElementById("favOpen").addEventListener("click", () => openFav(fvPanel.hidden));
+document.getElementById("fvClose").addEventListener("click", () => openFav(false));
+document.getElementById("fvToIx").addEventListener("click", () => openIndex(true));
+document.getElementById("ixToFav").addEventListener("click", () => openFav(true));
+document.getElementById("fvTabs").addEventListener("click", e => { const b = e.target.closest("button[data-fv]"); if (b) { fv.tab = b.dataset.fv; renderFav(); } });
+document.getElementById("fvSort").addEventListener("click", e => { const b = e.target.closest("button[data-sort]"); if (b) { fv.sort = b.dataset.sort; store.set("etymo-fav-sort", fv.sort); renderFav(); } });
+document.getElementById("fvFilter").addEventListener("input", e => { fv.filter = e.target.value.trim().toLowerCase(); renderFav(); });
+document.getElementById("favPanel").addEventListener("click", e => {
+  if (e.target.closest("[data-undo]")) { const r = fv.removed; fv.removed = null; if (r) { favs.set(r.id, r.t); saveFavs(); syncFav(); } return; }
+  const x = e.target.closest("[data-unfav]"); if (x) return toggleFav(x.dataset.unfav);
+  const b = e.target.closest(".ix-item"); if (!b) return;
+  go({ mode: "focus", id: b.dataset.id });
+  if (window.innerWidth <= 720) openFav(false);
+});
+
+/* =====================================================================
+   11. START
+   ===================================================================== */
+(async () => {
+  if (typeof vis === "undefined") {
+    document.getElementById("loadMsg").textContent = "vis-network を読み込めませんでした。ネットワーク接続を確認してください。";
+    return;
+  }
+  const data = await loadData();
+  buildModel(data);
+
+  document.getElementById("suggest").innerHTML = sortNodes([...nodeList])
+    .map(n => `<option value="${esc(displayKey(n))}">${TYPE[n.type].name}${(n.gloss || n.ja) ? " · " + esc(n.gloss || n.ja) : ""}</option>`).join("");
+
+  const graded = nodeList.filter(n => n.type !== "word");
+  const rev = graded.filter(n => n.status === "review").length;
+  document.getElementById("stats").textContent =
+    `${[...CATS.values()].filter(c => !isOrigin(c.id)).length} categories · ${count("pie")} PIE\n${count("root")} roots · ${count("affix")} affixes · ${count("word")} words（和訳 ${nodeList.filter(n => n.type === "word" && n.ja).length}）${rev ? `\n要確認 ${rev}` : ""}`;
+  if (issues.length) {
+    const w = document.getElementById("warn");
+    w.textContent = `⚠ データ警告 ${issues.length} 件`;
+    w.title = issues.join("\n");
+    console.warn("[etymo] データ警告\n" + issues.join("\n"));
+  }
+
+  document.getElementById("lgBranches").innerHTML = `<div class="lg-sep"></div><div class="lg-cap">言語系統（語根・接辞の輪の色）</div>` +
+    BRANCH_ORDER.filter(b => BRANCHES.has(b)).map(b => { const B = BRANCHES.get(b);
+      return `<div class="lg-row"><span class="sw"><i class="br" style="--b:${B.color}"></i></span>${esc(B.name.replace(/（.*）$/, ""))}</div>`; }).join("") +
+    `<div class="lg-row"><span class="sw"><i class="br dash"></i></span>点線の輪：語源不明</div>` +
+    `<label class="lg-toggle"><input type="checkbox" id="brToggle" checked>系統の色の輪を表示</label>`;
+  document.getElementById("brToggle").addEventListener("change", e => { showBranch = e.target.checked; lastState.clear(); render(); });
+
+  syncFav();
+  const start = hashToState(location.hash);
+  if (start.mode === "route") { pathSel.from = start.from; pathSel.to = start.to; pFrom.value = displayKey(byId.get(start.from)); pTo.value = displayKey(byId.get(start.to)); switchTab("path"); }
+  go(start, { push: false });
+  if (start.mode !== "home") doneLoading();
+})();
+</script>
+</body>
+</html>

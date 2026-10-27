@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "description": "表示テスト用（ブラウザのテストで vis-network をローカルから読み込むため）",
+  "dependencies": { "vis-network": "9.1.9" }
+}

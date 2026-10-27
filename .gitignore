@@ -1,0 +1,7 @@
+tools/node_modules/
+tools/js_dec.txt
+tools/*.png
+__pycache__/
+*.pyc
+etymo-data.v*.json
+.DS_Store

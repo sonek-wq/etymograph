@@ -192,6 +192,8 @@
 | `review` | ? | 出典と食い違いがあり要確認（表記の違いなど） |
 | `unverified`（省略時） | なし | 未照合 |
 
+出典は主に Etymonline（`etymonline`）です。Etymonline で確認できない語は、Claude（AI）の知識で補っています。その場合は出典を `knowledge`「Claude（AI）の知識による補足（Etymonline 未照合）」とし、`status` は `unverified` にしています。
+
 `src` の各要素は次の項目を持ちます。
 
 | 項目 | 内容 |

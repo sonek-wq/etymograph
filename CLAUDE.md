@@ -16,7 +16,11 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
 
 ## データ追加の方針
 
-- **照合：** 追加・修正はすべて Online Etymology Dictionary（etymonline.com）で確認する。`src` に項目名・確認日・日本語の要約を書く（原文をそのまま写さない）。末尾に「掲載語: …」を付ける。
+- **照合：** 追加・修正は、まず Online Etymology Dictionary（etymonline.com）で確認する。`src` に項目名・確認日・日本語の要約を書く（原文をそのまま写さない）。末尾に「掲載語: …」を付ける。
+- **Etymonline で確認できない場合：** 他の信頼できる辞書・資料、または Claude の知識で補ってよい（2026-10-27 に利用者が了承。Etymonline に必ず従う必要はない）。
+  - Claude の知識によるものは `src` の `id` を `knowledge`（`sources` に登録済み）にし、`entry`・`checked` は付けず、`note` に根拠を書く。新しく作る祖語・パーツの `status` は `unverified` にする。
+  - 他の資料を使う場合は `sources` にその資料を登録し、その `id` を使う。
+  - 後で Etymonline で確認できたら、`etymonline` の `src` を足して `status` を `verified` にする。
 - **単語：** すべてに `ja`（和訳）と `literal`（直訳）を付ける。
 - **祖語の表記：** Etymonline の表記に合わせる（例：`*spek-`、番号付きは `*pel-(5)`、ラベルは `*pel-`）。代名詞系など同綴りの区別は `*me-(pron)` のように説明的な接尾を付け、`label` は素の形にする。
 - **祖語につなぐ基準：**

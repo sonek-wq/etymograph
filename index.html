@@ -1116,6 +1116,8 @@ function hashToState(h) {
       const id = decodeURIComponent(h.slice(2));
       if (byId.has(id)) return { mode: "focus", id };
       if (byId.has(id + "(1)")) return { mode: "focus", id: id + "(1)" };   // 番号が後から付いた祖語
+      const ci = nodeList.find(n => n.id.toLowerCase() === id.toLowerCase());   // 大文字・小文字を変えた語（mister → Mister など）
+      if (ci) return { mode: "focus", id: ci.id };
       const old = id.replace(/^pie:/, "").replace(/\(\d+\)$/, "");
       const hit = nodeList.find(n => n.type === "pie" && n.alt === old);   // 旧表記のリンクにも対応
       if (hit) return { mode: "focus", id: hit.id };
@@ -1702,7 +1704,8 @@ function findNode(raw) {
     return order(nodeList.filter(n => g(n) === q || g(n).split(/[・、，,]/).includes(q)))[0]
         || order(nodeList.filter(n => g(n).includes(q)))[0] || null;
   }
-  return nodeList.find(n => norm(displayKey(n)) === s && displayKey(n) !== n.name)
+  return words.find(n => n.name === raw.trim())   // 大文字・小文字まで一致する語を優先（Miss と miss、May と may など）
+      || nodeList.find(n => norm(displayKey(n)) === s && displayKey(n) !== n.name)
       || words.find(n => norm(n.name) === s)
       || nodeList.find(n => norm(n.key) === s || norm(n.name) === s)
       || nodeList.find(n => n.alt && norm(n.alt) === s)
@@ -1894,10 +1897,11 @@ function renderIndex() {
    ===================================================================== */
 const FAV_KEY = "etymo-favs-v1";
 const FAV_STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.8L12 16.9l-5.2 2.75 1-5.8-4.2-4.1 5.8-.85z"/></svg>';
+const RENAMED = { "word:mister": "word:Mister" };   // id を変えた語（登録を引き継ぐ）
 const favs = (() => {   // id → 登録時刻（ms）
   try {
     const a = JSON.parse(store.get(FAV_KEY) || "[]");
-    return new Map(Array.isArray(a) ? a.filter(x => x && typeof x.id === "string").map(x => [x.id, Number(x.t) || 0]) : []);
+    return new Map(Array.isArray(a) ? a.filter(x => x && typeof x.id === "string").map(x => [RENAMED[x.id] || x.id, Number(x.t) || 0]) : []);
   } catch { return new Map(); }
 })();
 let favClock = 0;

@@ -66,6 +66,7 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
 | `python3 tools/test_lbl.py` | ノード名の表示切り替えと登録ノードの強調のテスト |
 | `python3 tools/test_mobile.py` | スマホ幅（390×844・360×640）と PC 幅のスクリーンショット（`tools/mob_*.png`） |
 | `python3 tools/test_search_mobile.py` | スマホでの検索（検索ボタン・Enter・変換確定・候補の選択）と PC の Enter 検索 |
+| `python3 tools/test_case.py` | 大文字・小文字だけが違う語（Miss / miss など）の検索と、id を変えた語（mister → Mister）の旧リンク・登録の引き継ぎ |
 
 画面の見た目を変えたときは、テストが保存するスクリーンショット（`tools/*.png`、.gitignore 済み）を目で確認する。
 
@@ -76,6 +77,7 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
 - スマホの検索補助（変換確定後の検索・候補選択での検索）は `TOUCH`（`pointer: coarse`）のときだけ動かす。「検索」ボタンは `type="button"`（submit にすると、PC で Enter による送信の挙動が変わる恐れがある）。
 - スマホ対応はすべて `@media (max-width:720px)` の中と、`fitNodes()`・`showHome()` の幅による分岐で行っている。PC の見た目を変えないこと（変更後は PC 幅のスクリーンショットも比べる）。
 - 登録したノードの表示：単語は本体と文字を黄色（#facc15）にし、祖語・語根・接辞は名前を黄色にして★印を `afterDrawing` で描く。
+- 単語の id は大文字・小文字を区別する（固有名詞・敬称は大文字：March と march、Miss と miss）。検索は大文字・小文字まで一致する語を優先する。既存の語の id を変えたときは、`index.html` の `RENAMED`（登録の引き継ぎ）に旧 id → 新 id を足す。旧リンク（`#f=word:旧id`）は大文字・小文字の違いだけなら自動で新 id に開く。
 
 ## 名称と検索での表示
 

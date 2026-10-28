@@ -31,6 +31,7 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
   - 最古の形が英語（古英語・中英語）で出所の分からないものは `etym: "unknown"`（語源不明。例：boy, dog, jump, smooth）。
   - Etymonline が非印欧語起源を主な説（probably など）としているものは `etym: "nonie"`、`branch: "nonie"`（例：coffee, tea, cotton, zero）。非印欧語説が候補の一つにすぎない場合は祖語未詳にして `note` に書く（例：tower, silk）。
 - **接辞の起源：** Etymonline が同じ祖語の接尾辞から（または同源と）する接辞は、その接尾辞（`*-nt-` など）を祖語ノード（カテゴリ `relation`）にしてつなぐ（例：-ing・-ent・-ence は `*-nt-`）。パーツどうしを直接つなぐ仕組みはないので、祖語の形が書かれていない同源関係（-ly と like、bench と bank、-ness と -tude など）はつながず `note` に書く。動名詞の -ing は `-ing(1)`、現在分詞の -ing は `-ing`。
+- **過去分詞由来の接尾辞：** ラテン語の過去分詞の語幹（act-, fact-, script-, stat- など）は語根の異形（`forms`）に含める。英語の綴りに接尾辞として残るものはその接尾辞を付ける：-ate（ラテン語 -ātus・-ātum。Etymonline の -ate (1) にならい estate・state・status・senate も）、-ade / -ado（-āta、parade・salad・desperado）、-y(1)（フランス語 -ée など、army・country・journey・jury・party）、-ee、-ed。いずれも `*-to-` につながる。ギリシア語由来（climate・pirate）や -ītus（unite）には -ate を付けない。
 - **言語のハブノードは作らない。**
 - **分解：** 語根・接辞の分け方は Etymonline の説明に従う。フランス語経由の -pose（compose, propose, purpose）は `paus`（後期ラテン語 pausāre）、ラテン語 pōnere 由来（suppose, position, deposit）は `pos`。比較級の -er は `-er(2)`、行為者の -er は `-er`。
 

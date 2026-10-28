@@ -21,6 +21,7 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
   - Claude の知識によるものは `src` の `id` を `knowledge`（`sources` に登録済み）にし、`entry`・`checked` は付けず、`note` に根拠を書く。新しく作る祖語・パーツの `status` は `unverified` にする。
   - 他の資料を使う場合は `sources` にその資料を登録し、その `id` を使う。
   - 後で Etymonline で確認できたら、`etymonline` の `src` を足して `status` を `verified` にする。
+  - American Heritage Dictionary の印欧語根付録（https://ahdictionary.com/word/indoeurop.html 、出典 id `ahd`、`anchor` に IR 番号）は、Etymonline が祖語を示さない（または「語源不明」とだけする）語根に使う。Etymonline が競合説・否定的見解を併記しているものには使わない（Watkins 説はその一つにすぎないため）。AHD の番号は Etymonline と違うことがある（AHD wel-2 ＝ 本サイト *wel-(3)、AHD sel-「跳ぶ」＝ *sel-(4)）。角括弧の見出し（[līk-] など）はゲルマン語の語根で、祖語ではない。ページは大きく WebFetch では先頭しか読めないので、ブラウザで開いてページ内で照合する。
 - **単語：** すべてに `ja`（和訳）と `literal`（直訳）を付ける。
 - **祖語の表記：** Etymonline の表記に合わせる（例：`*spek-`、番号付きは `*pel-(5)`、ラベルは `*pel-`）。代名詞系など同綴りの区別は `*me-(pron)` のように説明的な接尾を付け、`label` は素の形にする。
 - **祖語につなぐ基準：**

@@ -1396,7 +1396,7 @@ function renderCatCard(cid) {
 function srcSection(n) {
   const items = n.src.map(s => {
     const def = SOURCES[s.id] || { title: s.id };
-    const url = def.url && s.entry ? def.url.replace("{entry}", encodeURIComponent(s.entry)) : null;
+    const url = def.url && s.entry ? def.url.replace("{entry}", encodeURIComponent(s.entry)).replace("{anchor}", encodeURIComponent(s.anchor || s.entry)) : null;   // {anchor}：ページ内の位置（AHD の IR 番号など）
     const entry = s.entry ? (url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(s.entry)}</a>` : esc(s.entry)) : "";
     return `<li>${esc(def.title)}${entry ? " · " + entry : ""}${s.note ? `<small>${esc(s.note)}</small>` : ""}${s.checked ? `<small>照合日 ${esc(s.checked)}</small>` : ""}</li>`;
   }).join("");

@@ -193,7 +193,7 @@
 | `review` | ? | 出典と食い違いがあり要確認（表記の違いなど） |
 | `unverified`（省略時） | なし | 未照合 |
 
-出典は主に Etymonline（`etymonline`）です。Etymonline で確認できない語は、Claude（AI）の知識で補っています。その場合は出典を `knowledge`「Claude（AI）の知識による補足（Etymonline 未照合）」とし、`status` は `unverified` にしています。
+出典は主に Etymonline（`etymonline`）です。Etymonline が祖語を示していない語根の一部は、American Heritage Dictionary の印欧語根付録（`ahd`、Calvert Watkins）で補っています。Etymonline で確認できない語は、Claude（AI）の知識で補っています。その場合は出典を `knowledge`「Claude（AI）の知識による補足（Etymonline 未照合）」とし、`status` は `unverified` にしています。
 
 `src` の各要素は次の項目を持ちます。
 
@@ -201,6 +201,7 @@
 |---|---|
 | `id` | `sources` に登録した出典キー |
 | `entry` | 見出し語。`url` の `{entry}` に入る |
+| `anchor` | ページ内の位置（`url` の `{anchor}` に入る。AHD の IR 番号など。省略時は `entry`） |
 | `checked` | 照合日 |
 | `note` | 照合メモ（省略可） |
 

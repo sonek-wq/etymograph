@@ -33,6 +33,7 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
   - Etymonline が非印欧語起源を主な説（probably など）としているものは `etym: "nonie"`、`branch: "nonie"`（例：coffee, tea, cotton, zero）。非印欧語説が候補の一つにすぎない場合は祖語未詳にして `note` に書く（例：tower, silk）。
 - **接辞の起源：** Etymonline が同じ祖語の接尾辞から（または同源と）する接辞は、その接尾辞（`*-nt-` など）を祖語ノード（カテゴリ `relation`）にしてつなぐ（例：-ing・-ent・-ence は `*-nt-`、-en（動詞・形容詞・過去分詞）・-ian・-ine は `*-no-`）。パーツどうしを直接つなぐ仕組みはないので、祖語の形が書かれていない同源関係（-ly と like、bench と bank、-ness と -tude など）はつながず `note` に書く。動名詞の -ing は `-ing(1)`、現在分詞の -ing は `-ing`。
 - **過去分詞由来の接尾辞：** ラテン語の過去分詞の語幹（act-, fact-, script-, stat- など）は語根の異形（`forms`）に含める。英語の綴りに接尾辞として残るものはその接尾辞を付ける：-ate（ラテン語 -ātus・-ātum。Etymonline の -ate (1) にならい estate・state・status・senate も）、-ade / -ado（-āta、parade・salad・desperado）、-y(1)（フランス語 -ée など、army・country・journey・jury・party）、-ee、-ed。いずれも `*-to-` につながる。ギリシア語由来（climate・pirate）や -ītus（unite）には -ate を付けない。
+- **異表記：** 同じ語の別の綴り（okay、grey など）は別の単語にしない。主な綴りの語（OK、gray）の `variants` に入れる。主な綴りは Etymonline の見出しに合わせる。既にある語をまとめたときは、`index.html` の `RENAMED` に旧 id → まとめた先の id を足す（登録の引き継ぎ）。旧リンク（`#f=word:okay`）は `variants` から自動で開く。
 - **言語のハブノードは作らない。**
 - **分解：** 語根・接辞の分け方は Etymonline の説明に従う。フランス語経由の -pose（compose, propose, purpose）は `paus`（後期ラテン語 pausāre）、ラテン語 pōnere 由来（suppose, position, deposit）は `pos`。比較級の -er は `-er(2)`、行為者の -er は `-er`。
 
@@ -69,7 +70,7 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
 | `python3 tools/test_lbl.py` | ノード名の表示切り替えと登録ノードの強調のテスト |
 | `python3 tools/test_mobile.py` | スマホ幅（390×844・360×640）と PC 幅のスクリーンショット（`tools/mob_*.png`） |
 | `python3 tools/test_search_mobile.py` | スマホでの検索（検索ボタン・Enter・変換確定・候補の選択）と PC の Enter 検索 |
-| `python3 tools/test_case.py` | 大文字・小文字だけが違う語（Miss / miss など）の検索と、id を変えた語（mister → Mister）の旧リンク・登録の引き継ぎ |
+| `python3 tools/test_case.py` | 大文字・小文字だけが違う語（Miss / miss など）の検索、id を変えた語（mister → Mister）・異表記にまとめた語（okay → OK、grey → gray）の検索・入力候補・旧リンク・登録の引き継ぎ |
 
 画面の見た目を変えたときは、テストが保存するスクリーンショット（`tools/*.png`、.gitignore 済み）を目で確認する。
 

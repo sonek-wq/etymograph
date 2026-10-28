@@ -239,6 +239,7 @@
   .info-gloss{color:var(--muted);font-size:13px;margin-bottom:12px;line-height:1.5}
   .info-gloss em{font-style:normal;color:#b3bbcc}
   .info-ja{font-size:15px;font-weight:600;color:#e6e9ef;margin:2px 0 6px}
+  .info-var{font-size:12px;color:var(--muted);margin:-3px 0 6px}
   .decomp{font-size:12.5px;line-height:1.7;color:#b3bbcc;margin-bottom:12px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.035);border:1px solid var(--line)}
   .decomp b{font:600 12.5px var(--mono);color:var(--c)}
   .decomp .plus{color:#5f677a;padding:0 4px}
@@ -597,8 +598,11 @@ function buildModel(D) {
     // 同綴り語：id の末尾 (2) は表示で上付き数字にする（bear(2) → bear²）
     const homo = w.id.replace(/\((\d+)\)$/, (_, d) => [...d].map(c => "⁰¹²³⁴⁵⁶⁷⁸⁹"[c]).join(""));
     addNode({ id: ID.word(w.id), type: "word", key: w.id, name: w.label ?? homo, partRefs: asArray(w.parts),
-      ja: w.ja || "", literal: w.literal || "" });
+      ja: w.ja || "", literal: w.literal || "", variants: asArray(w.variants) });
   });
+  // 異表記（okay → OK など）は別の語の id と重ならないこと
+  const wordIds = new Set(asArray(D.words).map(w => w.id));
+  asArray(D.words).forEach(w => asArray(w.variants).forEach(v => { if (wordIds.has(v)) issues.push(`異表記が別の語と重複: ${w.id} / ${v}`); }));
   nodeList.filter(n => n.pieRefs).forEach(n => n.pieRefs.forEach(r => addEdge(n.id, ID.pie(r), "pie")));
   nodeList.filter(n => n.partRefs).forEach(n => n.partRefs.forEach(r => addEdge(n.id, ID.part(r), "part")));
   nodeList.forEach(n => {
@@ -1118,6 +1122,8 @@ function hashToState(h) {
       if (byId.has(id + "(1)")) return { mode: "focus", id: id + "(1)" };   // 番号が後から付いた祖語
       const ci = nodeList.find(n => n.id.toLowerCase() === id.toLowerCase());   // 大文字・小文字を変えた語（mister → Mister など）
       if (ci) return { mode: "focus", id: ci.id };
+      const vh = id.startsWith("word:") && byVariant(id.slice(5));   // 異表記に統合した語（okay → OK など）
+      if (vh) return { mode: "focus", id: vh.id };
       const old = id.replace(/^pie:/, "").replace(/\(\d+\)$/, "");
       const hit = nodeList.find(n => n.type === "pie" && n.alt === old);   // 旧表記のリンクにも対応
       if (hit) return { mode: "focus", id: hit.id };
@@ -1376,7 +1382,7 @@ function wordHead(n) {
   const parts = n.partRefs.map(r => byId.get(ID.part(r))).filter(Boolean);
   const fs = formsIn(n, parts);
   const dec = parts.map((p, i) => `<b style="--c:${TYPE[p.type].color}" title="${esc(p.name)}">${esc(fs[i])}</b>（${esc(p.gloss)}）`).join('<span class="plus">+</span>');
-  return `${n.ja ? `<div class="info-ja">${esc(n.ja)}</div>` : ""}
+  return `${n.ja ? `<div class="info-ja">${esc(n.ja)}</div>` : ""}${n.variants && n.variants.length ? `<div class="info-var">異表記：${n.variants.map(esc).join("、")}</div>` : ""}
     <div class="decomp">${dec}${n.literal ? `<span class="lit"><span>直訳</span>${esc(n.literal)}</span>` : ""}</div>`;
 }
 function renderCatCard(cid) {
@@ -1689,6 +1695,12 @@ const q = document.getElementById("q");
 const hint = document.getElementById("hint");
 const DEFAULT_HINT = hint.textContent;
 
+// 異表記（variants）から語を引く。大文字・小文字まで一致するものを優先
+function byVariant(raw) {
+  const v = raw.trim(), lv = v.toLowerCase();
+  const words = nodeList.filter(n => n.type === "word" && n.variants && n.variants.length);
+  return words.find(n => n.variants.includes(v)) || words.find(n => n.variants.some(x => x.toLowerCase() === lv)) || null;
+}
 function findNode(raw) {
   const s = raw.trim().toLowerCase();
   if (!s) return null;
@@ -1707,6 +1719,7 @@ function findNode(raw) {
   return words.find(n => n.name === raw.trim())   // 大文字・小文字まで一致する語を優先（Miss と miss、May と may など）
       || nodeList.find(n => norm(displayKey(n)) === s && displayKey(n) !== n.name)
       || words.find(n => norm(n.name) === s)
+      || byVariant(raw)
       || nodeList.find(n => norm(n.key) === s || norm(n.name) === s)
       || nodeList.find(n => n.alt && norm(n.alt) === s)
       || nodeList.find(n => (n.forms || []).some(f => norm(f) === s))
@@ -1723,11 +1736,12 @@ function suggestWords(raw) {
   const s = raw.toLowerCase().replace(/[^a-z]/g, "");
   if (!s) return [];
   const lim = s.length <= 4 ? 1 : s.length <= 7 ? 2 : 3;
-  return nodeList.filter(n => n.type === "word").map(n => {
-    const w = n.name.toLowerCase().replace(/[^a-z]/g, "");
+  const dist = name => {
+    const w = name.toLowerCase().replace(/[^a-z]/g, "");
     const d = w.includes(s) || s.includes(w) && w.length >= 3 ? Math.min(1, editDist(s, w)) : editDist(s, w);
-    return { n, d: d + Math.abs(w.length - s.length) * 0.01 };
-  }).filter(x => x.d <= lim + 0.5).sort((a, b) => a.d - b.d || a.n.name.localeCompare(b.n.name)).slice(0, 6).map(x => x.n);
+    return d + Math.abs(w.length - s.length) * 0.01;
+  };
+  return nodeList.filter(n => n.type === "word").map(n => ({ n, d: Math.min(dist(n.name), ...(n.variants || []).map(dist)) })).filter(x => x.d <= lim + 0.5).sort((a, b) => a.d - b.d || a.n.name.localeCompare(b.n.name)).slice(0, 6).map(x => x.n);
 }
 hint.addEventListener("click", e => {
   const b = e.target.closest("button.sug"); if (!b) return;
@@ -1824,7 +1838,7 @@ const matchNode = (n, f) => {
   if (!f) return true;
   // 単語は構成パーツの意味でも引ける（例：「見る」→ inspect, vision …）
   const partGloss = n.type === "word" ? n.partRefs.map(r => byId.get(ID.part(r))?.gloss || "") : [];
-  return [n.name, n.key, n.alt || "", n.gloss || "", n.ja || "", n.literal || "", ...partGloss, ...(n.forms || [])].some(x => x.toLowerCase().includes(f));
+  return [n.name, n.key, n.alt || "", ...(n.variants || []), n.gloss || "", n.ja || "", n.literal || "", ...partGloss, ...(n.forms || [])].some(x => x.toLowerCase().includes(f));
 };
 const dots = bs => bs.map(b => `<span class="bd" style="--b:${BRANCHES.get(b).color}" title="${esc(BRANCHES.get(b).name)}"></span>`).join("");
 function ixItem(n, sub, end = "") {
@@ -1897,7 +1911,7 @@ function renderIndex() {
    ===================================================================== */
 const FAV_KEY = "etymo-favs-v1";
 const FAV_STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.8L12 16.9l-5.2 2.75 1-5.8-4.2-4.1 5.8-.85z"/></svg>';
-const RENAMED = { "word:mister": "word:Mister" };   // id を変えた語（登録を引き継ぐ）
+const RENAMED = { "word:mister": "word:Mister", "word:okay": "word:OK", "word:grey": "word:gray" };   // id を変えた語・異表記に統合した語（登録を引き継ぐ）
 const favs = (() => {   // id → 登録時刻（ms）
   try {
     const a = JSON.parse(store.get(FAV_KEY) || "[]");
@@ -2007,7 +2021,8 @@ document.getElementById("favPanel").addEventListener("click", e => {
   buildModel(data);
 
   document.getElementById("suggest").innerHTML = sortNodes([...nodeList])
-    .map(n => `<option value="${esc(displayKey(n))}">${TYPE[n.type].name}${(n.gloss || n.ja) ? " · " + esc(n.gloss || n.ja) : ""}</option>`).join("");
+    .map(n => `<option value="${esc(displayKey(n))}">${TYPE[n.type].name}${(n.gloss || n.ja) ? " · " + esc(n.gloss || n.ja) : ""}</option>` +
+      (n.variants || []).map(v => `<option value="${esc(v)}">${TYPE[n.type].name} · ${esc(n.name)} の異表記</option>`).join("")).join("");
 
   const graded = nodeList.filter(n => n.type !== "word");
   const rev = graded.filter(n => n.status === "review").length;

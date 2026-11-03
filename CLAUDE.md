@@ -23,7 +23,7 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
   - 後で Etymonline で確認できたら、`etymonline` の `src` を足して `status` を `verified` にする。
   - American Heritage Dictionary の印欧語根付録（https://ahdictionary.com/word/indoeurop.html 、出典 id `ahd`、`anchor` に IR 番号）は、Etymonline が祖語を示さない（または「語源不明」とだけする）語根に使う。Etymonline が競合説・否定的見解を併記しているものには使わない（Watkins 説はその一つにすぎないため）。AHD の番号は Etymonline と違うことがある（AHD wel-2 ＝ 本サイト *wel-(3)、AHD sel-「跳ぶ」＝ *sel-(4)）。角括弧の見出し（[līk-] など）はゲルマン語の語根で、祖語ではない。ページは大きく WebFetch では先頭しか読めないので、ブラウザで開いてページ内で照合する。
 - **単語：** すべてに `ja`（和訳）と `literal`（直訳）を付ける。
-- **祖語の表記：** Etymonline の表記に合わせる（例：`*spek-`、番号付きは `*pel-(5)`、ラベルは `*pel-`）。代名詞系など同綴りの区別は `*me-(pron)` のように説明的な接尾を付け、`label` は素の形にする。
+- **祖語の表記：** Etymonline の表記に合わせる（例：`*spek-`、番号付きは `*pel-(5)`、ラベルは `*pel-`）。代名詞系など同綴りの区別は `*me-(pron)` のように説明的な接尾を付け、`label` は素の形にする。Etymonline に番号のない祖語が、既にある祖語と同じ表記で意味が違う場合も同じようにする（例：`*bher-(cook)`「焼く」、`*rei-(scratch)`、`*ko-(sharpen)`、`*bhru-(brow)`、`*bhreu-(smash)`）。
 - **祖語につなぐ基準：**
   - 祖語の説が一つだけなら、留保付き（perhaps など）でもつなぐ。
   - 説が競合している、または否定的な見解が併記されているなら `pie: []` にして `note` に書く。

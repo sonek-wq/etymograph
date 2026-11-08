@@ -33,6 +33,7 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
   - Etymonline が非印欧語起源を主な説（probably など）としているものは `etym: "nonie"`、`branch: "nonie"`（例：coffee, tea, cotton, zero）。非印欧語説が候補の一つにすぎない場合は祖語未詳にして `note` に書く（例：tower, silk）。
 - **接辞の起源：** Etymonline が同じ祖語の接尾辞から（または同源と）する接辞は、その接尾辞（`*-nt-` など）を祖語ノード（カテゴリ `relation`）にしてつなぐ（例：-ing・-ent・-ence は `*-nt-`、-en（動詞・形容詞・過去分詞）・-ian・-ine は `*-no-`）。パーツどうしを直接つなぐ仕組みはないので、祖語の形が書かれていない同源関係（-ly と like、bench と bank、-ness と -tude など）はつながず `note` に書く。動名詞の -ing は `-ing(1)`、現在分詞の -ing は `-ing`。
 - **過去分詞由来の接尾辞：** ラテン語の過去分詞の語幹（act-, fact-, script-, stat- など）は語根の異形（`forms`）に含める。英語の綴りに接尾辞として残るものはその接尾辞を付ける：-ate（ラテン語 -ātus・-ātum。Etymonline の -ate (1) にならい estate・state・status・senate も）、-ade / -ado（-āta、parade・salad・desperado）、-y(1)（フランス語 -ée など、army・country・journey・jury・party）、-ee、-ed。いずれも `*-to-` につながる。ギリシア語由来（climate・pirate）や -ītus（unite）には -ate を付けない。
+- **同綴り語：** 綴りが同じで語源が違う語は、番号なしの語を残さず、すべてに `scale(1)` / `scale(2)` / `scale(3)` のように番号を付ける。`(1)` は最も主要な意味・用法（例：scale(1)「規模」、scale(2)「はかり」、scale(3)「うろこ」、found(1)「設立する」、grave(1)「墓」）。語源が同じなら番号で分けず1語にする（Etymonline で別見出しでも、同じ語の意味の広がりなら1語）。新しく2つ目を足すときは既存の語を `(1)` に改め、`index.html` の `RENAMED` に旧 id → 新 id を足す。番号を入れ替えるとき（旧 (2) を (1) にするなど）は、新しい id と重なるので `FAV_MIG` に入れ、`etymo-fav-mig` の印で一度だけ置き換える（印の値を上げて再実行する）。番号なしの検索・旧リンク（`#f=word:bear`）は `(1)` を開く。
 - **異表記：** 同じ語の別の綴り（okay、grey など）は別の単語にしない。主な綴りの語（OK、gray）の `variants` に入れる。主な綴りは Etymonline の見出しに合わせる。既にある語をまとめたときは、`index.html` の `RENAMED` に旧 id → まとめた先の id を足す（登録の引き継ぎ）。旧リンク（`#f=word:okay`）は `variants` から自動で開く。
 - **言語のハブノードは作らない。**
 - **分解：** 語根・接辞の分け方は Etymonline の説明に従う。フランス語経由の -pose（compose, propose, purpose）は `paus`（後期ラテン語 pausāre）、ラテン語 pōnere 由来（suppose, position, deposit）は `pos`。比較級の -er は `-er(2)`、行為者の -er は `-er`。
@@ -70,13 +71,13 @@ README.md は利用者向けの説明とデータ形式の仕様、このファ�
 | `python3 tools/test_lbl.py` | ノード名の表示切り替えと登録ノードの強調のテスト |
 | `python3 tools/test_mobile.py` | スマホ幅（390×844・360×640）と PC 幅のスクリーンショット（`tools/mob_*.png`） |
 | `python3 tools/test_search_mobile.py` | スマホでの検索（検索ボタン・Enter・変換確定・候補の選択）と PC の Enter 検索 |
-| `python3 tools/test_case.py` | 大文字・小文字だけが違う語（Miss / miss など）の検索、id を変えた語（mister → Mister）・異表記にまとめた語（okay → OK、grey → gray）の検索・入力候補・旧リンク・登録の引き継ぎ |
+| `python3 tools/test_case.py` | 大文字・小文字だけが違う語（Miss / miss など）の検索、id を変えた語（mister → Mister）・異表記にまとめた語（okay → OK、grey → gray）・番号を付け直した同綴り語（bear → bear(1)、found(2) → found(1)）の検索・入力候補・旧リンク・登録の引き継ぎ、番号なしで残った同綴り語がないこと |
 
 画面の見た目を変えたときは、テストが保存するスクリーンショット（`tools/*.png`、.gitignore 済み）を目で確認する。
 
 ## 画面まわりのメモ
 
-- 登録（☆）と各種設定はブラウザの localStorage に保存する（`etymo-favs-v1`、`etymo-via-affix`、`etymo-fav-sort`、`etymo-label`）。キー名を変えると利用者の登録が消えるので変えないこと。
+- 登録（☆）と各種設定はブラウザの localStorage に保存する（`etymo-favs-v1`、`etymo-via-affix`、`etymo-fav-sort`、`etymo-label`、番号の入れ替えを一度だけ反映した印 `etymo-fav-mig`）。キー名を変えると利用者の登録が消えるので変えないこと。
 - 道探索で「接辞も経由」がオフのとき、繋がらなければ `fewestAffixPaths()`（通る接辞が最少の道）に切り替えて、その旨を表示する。
 - スマホの検索補助（変換確定後の検索・候補選択での検索）は `TOUCH`（`pointer: coarse`）のときだけ動かす。「検索」ボタンは `type="button"`（submit にすると、PC で Enter による送信の挙動が変わる恐れがある）。
 - スマホ対応はすべて `@media (max-width:720px)` の中と、`fitNodes()`・`showHome()` の幅による分岐で行っている。PC の見た目を変えないこと（変更後は PC 幅のスクリーンショットも比べる）。

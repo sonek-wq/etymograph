@@ -1119,7 +1119,7 @@ function hashToState(h) {
     if (h.startsWith("f=")) {
       const id = decodeURIComponent(h.slice(2));
       if (byId.has(id)) return { mode: "focus", id };
-      if (byId.has(id + "(1)")) return { mode: "focus", id: id + "(1)" };   // 番号が後から付いた祖語
+      if (byId.has(id + "(1)")) return { mode: "focus", id: id + "(1)" };   // 番号が後から付いた祖語・同綴り語（bear → bear(1)）
       const ci = nodeList.find(n => n.id.toLowerCase() === id.toLowerCase());   // 大文字・小文字を変えた語（mister → Mister など）
       if (ci) return { mode: "focus", id: ci.id };
       const vh = id.startsWith("word:") && byVariant(id.slice(5));   // 異表記に統合した語（okay → OK など）
@@ -1128,7 +1128,11 @@ function hashToState(h) {
       const hit = nodeList.find(n => n.type === "pie" && n.alt === old);   // 旧表記のリンクにも対応
       if (hit) return { mode: "focus", id: hit.id };
     }
-    if (h.startsWith("r=")) { const [a, b] = h.slice(2).split("|").map(decodeURIComponent); if (byId.has(a) && byId.has(b)) return { mode: "route", from: a, to: b }; }
+    if (h.startsWith("r=")) {
+      const fix = id => byId.has(id) ? id : byId.has(id + "(1)") ? id + "(1)" : id;   // 番号が後から付いた語・祖語
+      const [a, b] = h.slice(2).split("|").map(decodeURIComponent).map(fix);
+      if (byId.has(a) && byId.has(b)) return { mode: "route", from: a, to: b };
+    }
   } catch (e) {}
   return { mode: "home" };
 }
@@ -1717,8 +1721,10 @@ function findNode(raw) {
         || order(nodeList.filter(n => g(n).includes(q)))[0] || null;
   }
   return words.find(n => n.name === raw.trim())   // 大文字・小文字まで一致する語を優先（Miss と miss、May と may など）
+      || words.find(n => n.key === raw.trim() + "(1)")   // 同綴り語は番号なしで (1)（主要な意味）を引く（bear → bear(1)）
       || nodeList.find(n => norm(displayKey(n)) === s && displayKey(n) !== n.name)
       || words.find(n => norm(n.name) === s)
+      || words.find(n => norm(n.key) === s + "(1)")
       || byVariant(raw)
       || nodeList.find(n => norm(n.key) === s || norm(n.name) === s)
       || nodeList.find(n => n.alt && norm(n.alt) === s)
@@ -1911,11 +1917,20 @@ function renderIndex() {
    ===================================================================== */
 const FAV_KEY = "etymo-favs-v1";
 const FAV_STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.8L12 16.9l-5.2 2.75 1-5.8-4.2-4.1 5.8-.85z"/></svg>';
-const RENAMED = { "word:mister": "word:Mister", "word:okay": "word:OK", "word:grey": "word:gray" };   // id を変えた語・異表記に統合した語（登録を引き継ぐ）
+const RENAMED = { "word:mister": "word:Mister", "word:okay": "word:OK", "word:grey": "word:gray",   // id を変えた語・異表記に統合した語（登録を引き継ぐ）
+  // 同綴り語の番号付け直し（2026-11。番号のなかった語に (1) を付け、主要な意味を (1) にした）
+  "word:found": "word:found(2)", "word:grave": "word:grave(2)", "word:scale": "word:scale(3)",
+  "word:ball": "word:ball(1)", "word:bark": "word:bark(1)", "word:bat": "word:bat(1)", "word:bear": "word:bear(1)", "word:bound": "word:bound(1)", "word:can": "word:can(1)", "word:case": "word:case(1)", "word:colon": "word:colon(1)", "word:ear": "word:ear(1)", "word:hail": "word:hail(1)", "word:hide": "word:hide(1)", "word:last": "word:last(1)", "word:lie": "word:lie(1)", "word:light": "word:light(1)", "word:mean": "word:mean(1)", "word:mint": "word:mint(1)", "word:miss": "word:miss(1)", "word:mold": "word:mold(1)", "word:prize": "word:prize(1)", "word:rear": "word:rear(1)", "word:sage": "word:sage(1)", "word:swallow": "word:swallow(1)", "word:tart": "word:tart(1)", "word:tear": "word:tear(1)", "word:well": "word:well(1)" };
+// 番号を入れ替えた語（旧 found(2) → found(1) など）。新しい id と重なるので、一度だけ置き換える
+const FAV_MIG_KEY = "etymo-fav-mig", FAV_MIG = { "word:found(2)": "word:found(1)", "word:grave(2)": "word:grave(1)" };
 const favs = (() => {   // id → 登録時刻（ms）
   try {
+    const mig = store.get(FAV_MIG_KEY) !== "1";
     const a = JSON.parse(store.get(FAV_KEY) || "[]");
-    return new Map(Array.isArray(a) ? a.filter(x => x && typeof x.id === "string").map(x => [RENAMED[x.id] || x.id, Number(x.t) || 0]) : []);
+    const re = id => (mig && FAV_MIG[id]) || RENAMED[id] || id;
+    const m = new Map(Array.isArray(a) ? a.filter(x => x && typeof x.id === "string").map(x => [re(x.id), Number(x.t) || 0]) : []);
+    if (mig) { if (a.length) store.set(FAV_KEY, JSON.stringify([...m].map(([id, t]) => ({ id, t })))); store.set(FAV_MIG_KEY, "1"); }
+    return m;
   } catch { return new Map(); }
 })();
 let favClock = 0;
